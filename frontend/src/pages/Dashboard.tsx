@@ -32,8 +32,8 @@ export default function Dashboard() {
     if (!isTeacher) {
       TeachersApi.list().then((r) => setTeachers(r.data));
       DebtsApi.get().then((r) => setDebts(r.data));
+      TeacherAttendanceApi.live().then((r) => setActiveTeachersNow(r.data.filter((l) => l.active).length));
     }
-    TeacherAttendanceApi.live().then((r) => setActiveTeachersNow(r.data.filter((l) => l.active).length));
     LeaveRequestsApi.list({ status: 'PENDING' }).then((r) => setPendingLeaves(r.data.length));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isTeacher]);

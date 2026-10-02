@@ -1,4 +1,13 @@
-import { Body, Controller, Injectable, Module, Post, UnauthorizedException } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  HttpException,
+  HttpStatus,
+  Injectable,
+  Module,
+  Post,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { JwtModule, JwtService } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
@@ -7,19 +16,25 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import * as bcrypt from 'bcryptjs';
-import { IsString, MinLength } from 'class-validator';
+import { IsNotEmpty, IsString, MinLength } from 'class-validator';
 import { User } from '../database/schemas';
 import { AppRole } from '../common/decorators/roles.decorator';
 
 // ---------- DTO ----------
 export class LoginDto {
   @IsString()
+  @IsNotEmpty()
   phone: string;
 
   @IsString()
   @MinLength(4)
   password: string;
 }
+
+// Parolni tanlab topishga (brute-force) qarshi oddiy cheklov: bitta telefon raqam uchun
+// LOGIN_WINDOW_MS ichida LOGIN_MAX_FAILS martadan ko'p xato urinish bo'lsa, vaqtincha bloklanadi.
+const LOGIN_MAX_FAILS = 5;
+const LOGIN_WINDOW_MS = 15 * 60 * 1000;
 
 // ---------- JWT payload turi ----------
 export interface JwtPayload {
@@ -62,12 +77,44 @@ export class AuthService {
     private jwt: JwtService,
   ) {}
 
-  async login(dto: LoginDto) {
-    const user = await this.userModel.findOne({ phone: dto.phone });
-    if (!user) throw new UnauthorizedException('Telefon yoki parol noto‘g‘ri');
+  private failedLogins = new Map<string, { count: number; firstAt: number }>();
 
-    const ok = await bcrypt.compare(dto.password, user.password);
-    if (!ok) throw new UnauthorizedException('Telefon yoki parol noto‘g‘ri');
+  private assertNotLocked(phone: string) {
+    const entry = this.failedLogins.get(phone);
+    if (!entry) return;
+    if (Date.now() - entry.firstAt > LOGIN_WINDOW_MS) {
+      this.failedLogins.delete(phone);
+      return;
+    }
+    if (entry.count >= LOGIN_MAX_FAILS) {
+      throw new HttpException(
+        'Juda ko‘p noto‘g‘ri urinish. Iltimos, 15 daqiqadan so‘ng qayta urinib ko‘ring.',
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
+    }
+  }
+
+  private registerFailure(phone: string) {
+    const entry = this.failedLogins.get(phone);
+    if (!entry || Date.now() - entry.firstAt > LOGIN_WINDOW_MS) {
+      this.failedLogins.set(phone, { count: 1, firstAt: Date.now() });
+    } else {
+      entry.count++;
+    }
+  }
+
+  async login(dto: LoginDto) {
+    // Hisoblar yaratilganda telefon trim qilinadi — login'da ham shunday qilamiz.
+    const phone = dto.phone.trim();
+    this.assertNotLocked(phone);
+
+    const user = await this.userModel.findOne({ phone });
+    const ok = user ? await bcrypt.compare(dto.password, user.password) : false;
+    if (!user || !ok) {
+      this.registerFailure(phone);
+      throw new UnauthorizedException('Telefon yoki parol noto‘g‘ri');
+    }
+    this.failedLogins.delete(phone);
 
     const payload: JwtPayload = {
       sub: user.id,

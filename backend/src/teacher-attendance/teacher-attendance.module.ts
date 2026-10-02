@@ -3,6 +3,9 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { TeacherAttendance, TeacherLiveLocation, Teacher } from '../database/schemas';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
+import { RolesGuard } from '../common/guards/roles.guard';
+import { CurrentUser } from '../common/decorators/current-user.decorator';
+import { AuthUser, teacherScope } from '../common/utils/access';
 
 @Injectable()
 export class TeacherAttendanceService {
@@ -27,9 +30,9 @@ export class TeacherAttendanceService {
     return records.map((r) => ({ ...r.toObject(), teacher: teacherMap.get(r.teacherId) || null }));
   }
 
-  /** Barcha o'qituvchilarning hozirgi (jonli) joylashuv holati */
-  async live() {
-    const locations = await this.liveModel.find();
+  /** O'qituvchilarning hozirgi (jonli) joylashuv holati */
+  async live(teacherId?: string) {
+    const locations = await this.liveModel.find(teacherId ? { teacherId } : {});
     const teacherIds = locations.map((l) => l.teacherId);
     const teachers = teacherIds.length ? await this.teacherModel.find({ _id: { $in: teacherIds } }) : [];
     const teacherMap = new Map(teachers.map((t) => [t.id, t] as const));
@@ -39,19 +42,21 @@ export class TeacherAttendanceService {
   }
 }
 
-@UseGuards(JwtAuthGuard)
+// Joylashuv — shaxsiy ma'lumot: rahbariyat hammanikini ko'radi, TEACHER esa faqat o'zinikini.
+@UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('teacher-attendance')
 export class TeacherAttendanceController {
   constructor(private service: TeacherAttendanceService) {}
 
   @Get()
-  list(@Query() query: { teacherId?: string; from?: string; to?: string }) {
-    return this.service.list(query);
+  list(@Query() query: { teacherId?: string; from?: string; to?: string }, @CurrentUser() user: AuthUser) {
+    const scope = teacherScope(user);
+    return this.service.list(scope ? { ...query, teacherId: scope } : query);
   }
 
   @Get('live')
-  live() {
-    return this.service.live();
+  live(@CurrentUser() user: AuthUser) {
+    return this.service.live(teacherScope(user));
   }
 }
 

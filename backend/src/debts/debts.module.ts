@@ -1,4 +1,4 @@
-import { Controller, Get, Injectable, Module, Query, UseGuards } from '@nestjs/common';
+import { BadRequestException, Controller, Get, Injectable, Module, Query, UseGuards } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Student, Group, Payment } from '../database/schemas';
@@ -21,10 +21,21 @@ export class DebtsService {
 
   /** Berilgan oy (YYYY-MM) uchun barcha faol o'quvchilarning qarzdorligini hisoblaydi. */
   async getDebtsForPeriod(period?: string) {
+    if (period && !/^\d{4}-(0[1-9]|1[0-2])$/.test(period)) {
+      throw new BadRequestException("Oy YYYY-MM formatida bo'lishi kerak");
+    }
     const targetPeriod = period || currentPeriod();
-    const students = await this.studentModel.find({ active: true });
-    const groups = await this.groupModel.find();
+    const [students, groups, paidRows] = await Promise.all([
+      this.studentModel.find({ active: true }),
+      this.groupModel.find(),
+      // Har bir o'quvchi uchun alohida so'rov (N+1) o'rniga — bitta agregatsiya.
+      this.paymentModel.aggregate<{ _id: string; total: number }>([
+        { $match: { periodMonth: targetPeriod } },
+        { $group: { _id: '$studentId', total: { $sum: '$amount' } } },
+      ]),
+    ]);
     const groupMap = new Map(groups.map((g) => [g.id, g] as const));
+    const paidMap = new Map(paidRows.map((r) => [r._id, r.total] as const));
 
     const result: any[] = [];
     for (const student of students) {
@@ -38,8 +49,7 @@ export class DebtsService {
       const discountPct = student.discountPct || 0;
       const expected = Math.round(fullPrice * (1 - discountPct / 100));
 
-      const payments = await this.paymentModel.find({ studentId: student.id, periodMonth: targetPeriod });
-      const paid = payments.reduce((s, p) => s + p.amount, 0);
+      const paid = paidMap.get(student.id) || 0;
       const debt = expected - paid;
 
       if (debt > 0) {

@@ -31,6 +31,8 @@ docker compose up -d --build
 - Backend: http://localhost:3000/api
 - Frontend: http://localhost:5173
 - Standart admin: telefon `+998900000000`, parol `admin12345` (docker-compose.yml ichida o'zgartirishingiz mumkin)
+- Production uchun `JWT_SECRET`ni albatta o'zgartiring: `JWT_SECRET=$(openssl rand -hex 32) docker compose up -d --build`
+  (`NODE_ENV=production` bo'lsa, standart kalit bilan server umuman ishga tushmaydi)
 
 ## 2. Qo'lda ishga tushirish
 
@@ -145,9 +147,20 @@ Ota-onalar arizalarini admin panelning **"Ota-onalar arizalari"** sahifasida ko'
 | RAHBAR | Ko'rish huquqi asosiy (hisobot/monitoring uchun mo'ljallangan) |
 | O'QITUVCHI | O'z guruhlariga vazifa/baho qo'yadi, davomat belgilaydi; o'quvchi/o'qituvchi CRUD qilolmaydi |
 
-Birinchi (seed) hisob **SUPERADMIN** sifatida yaratiladi (`npm run seed`). Yangi login'lar endi faqat
-`/users` sahifasidan (SUPERADMIN tomonidan) yaratiladi — ochiq `/auth/register` endpoint olib
-tashlandi (xavfsizlik uchun).
+Birinchi (seed) hisob **SUPERADMIN** sifatida yaratiladi (`npm run seed`, skript: `backend/scripts/seed.ts`).
+Yangi login'lar endi faqat `/users` sahifasidan (SUPERADMIN tomonidan) yaratiladi — ochiq `/auth/register`
+endpoint olib tashlandi (xavfsizlik uchun).
+
+### Xavfsizlik bo'yicha eslatmalar
+
+- Parollar faqat bcrypt hash ko'rinishida saqlanadi — ochiq matnli nusxa saqlanmaydi va ko'rsatilmaydi.
+  Parolini unutgan foydalanuvchi uchun `/users` sahifasidagi "Parolni almashtirish"dan foydalaning.
+- Login: bitta telefon raqam uchun 15 daqiqa ichida 5 marta noto'g'ri parol kiritilsa, vaqtincha bloklanadi.
+- O'QITUVCHI faqat o'z guruhlari bilan ishlaydi: o'z guruhining darslari, davomati, baholari, uyga
+  vazifalari va o'quvchilari; boshqa o'qituvchilarning joylashuvi va Telegram bog'lash kodlarini ko'rmaydi.
+- Telegram bog'lash kodi bir martalik: bog'langandan keyin boshqa chat shu kod bilan ulana olmaydi.
+- Yuklanadigan fayllar turi cheklangan (rasm, PDF, Office hujjatlari, video/audio); xavfli turlar
+  brauzerda ochilmaydi, faqat yuklab olinadi.
 
 ## 6. Keyingi qadamlar (agar rivojlantirmoqchi bo'lsangiz)
 

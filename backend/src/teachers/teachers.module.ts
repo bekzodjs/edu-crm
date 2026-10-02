@@ -1,5 +1,7 @@
 import {
+  BadRequestException,
   Body,
+  ConflictException,
   Controller,
   Delete,
   ForbiddenException,
@@ -16,34 +18,57 @@ import {
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { isValidObjectId, Model } from 'mongoose';
 import { diskStorage } from 'multer';
+import { IsBoolean, IsIn, IsNotEmpty, IsNumber, IsOptional, IsString, Max, MaxLength, Min } from 'class-validator';
 import { existsSync, mkdirSync, unlink } from 'fs';
 import { join } from 'path';
-import { Teacher, Group } from '../database/schemas';
+import { Teacher, Group, User } from '../database/schemas';
+import { DOCUMENT_EXTENSIONS, extensionFilter, safeFilename } from '../common/utils/upload';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 
 export class CreateTeacherDto {
+  @IsString()
+  @IsNotEmpty({ message: 'F.I.Sh. kiritilishi shart' })
+  @MaxLength(200)
   fullName: string;
+
+  @IsString()
+  @IsNotEmpty({ message: 'Telefon kiritilishi shart' })
+  @MaxLength(50)
   phone: string;
-  subject?: string;
+
+  @IsOptional() @IsString() @MaxLength(100) subject?: string;
+
+  @IsOptional()
+  @IsNumber({}, { message: "Maosh foizi son bo'lishi kerak" })
+  @Min(0)
+  @Max(100)
   salaryPct?: number;
 }
 
 export class UpdateTeacherDto {
-  fullName?: string;
-  phone?: string;
-  subject?: string;
+  @IsOptional() @IsString() @IsNotEmpty() @MaxLength(200) fullName?: string;
+  @IsOptional() @IsString() @IsNotEmpty() @MaxLength(50) phone?: string;
+  @IsOptional() @IsString() @MaxLength(100) subject?: string;
+
+  @IsOptional()
+  @IsNumber({}, { message: "Maosh foizi son bo'lishi kerak" })
+  @Min(0)
+  @Max(100)
   salaryPct?: number;
-  active?: boolean;
+
+  @IsOptional() @IsBoolean() active?: boolean;
 }
 
+const DOCUMENT_TYPES = ['DIPLOM', 'SERTIFIKAT', 'MALAKA_KURSI', 'BOSHQA'] as const;
+
 export class AddTeacherDocumentDto {
-  title: string;
-  type?: 'DIPLOM' | 'SERTIFIKAT' | 'MALAKA_KURSI' | 'BOSHQA';
+  @IsOptional() @IsString() @MaxLength(200) title?: string;
+  @IsOptional() @IsIn(DOCUMENT_TYPES) type?: (typeof DOCUMENT_TYPES)[number];
 }
 
 // multer/@types paketisiz ham TypeScript xato bermasligi uchun soddalashtirilgan tur.
@@ -62,6 +87,7 @@ export class TeachersService {
   constructor(
     @InjectModel(Teacher.name) private teacherModel: Model<Teacher>,
     @InjectModel(Group.name) private groupModel: Model<Group>,
+    @InjectModel(User.name) private userModel: Model<User>,
   ) {}
 
   create(dto: CreateTeacherDto) {
@@ -90,14 +116,26 @@ export class TeachersService {
   async remove(id: string) {
     const teacher = await this.teacherModel.findById(id);
     if (!teacher) throw new NotFoundException('O‘qituvchi topilmadi');
+    // Guruhlari bor o'qituvchi o'chirilsa, guruhlar "egasiz" qolib, daromad/davomat hisoblari buziladi.
+    const groupCount = await this.groupModel.countDocuments({ teacherId: id });
+    if (groupCount > 0) {
+      throw new ConflictException(
+        `Bu o'qituvchiga ${groupCount} ta guruh biriktirilgan. Avval guruhlarni boshqa o'qituvchiga o'tkazing yoki o'qituvchini nofaol qiling.`,
+      );
+    }
     await teacher.deleteOne();
+    // Shu o'qituvchiga bog'langan login hisoblari endi hech kimga tegishli emas.
+    await this.userModel.updateMany({ teacherId: id }, { $unset: { teacherId: '' } });
     return teacher;
   }
 
   async addDocument(id: string, dto: AddTeacherDocumentDto, file: UploadedFileLike) {
     const teacher = await this.teacherModel.findById(id);
-    if (!teacher) throw new NotFoundException('O‘qituvchi topilmadi');
-    if (!file) throw new NotFoundException('Fayl yuklanmadi');
+    if (!file) throw new BadRequestException('Fayl yuklanmadi');
+    if (!teacher) {
+      unlink(file.path, () => undefined);
+      throw new NotFoundException('O‘qituvchi topilmadi');
+    }
 
     teacher.documents.push({
       _id: undefined,
@@ -174,15 +212,16 @@ export class TeachersController {
     FileInterceptor('file', {
       storage: diskStorage({
         destination: (req: any, _file: any, cb: any) => {
+          // ID papka nomi sifatida ishlatiladi — "../" kabi qiymatlar bilan boshqa joyga yozib
+          // yuborishning oldini olish uchun faqat haqiqiy ObjectId qabul qilinadi.
+          if (!isValidObjectId(req.params.id)) return cb(new BadRequestException("Noto'g'ri ID"), '');
           const dir = join(UPLOAD_ROOT, req.params.id);
           if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
           cb(null, dir);
         },
-        filename: (_req: any, file: any, cb: any) => {
-          const safe = file.originalname.replace(/[^a-zA-Z0-9._-]/g, '_');
-          cb(null, `${Date.now()}-${safe}`);
-        },
+        filename: (_req: any, file: any, cb: any) => cb(null, safeFilename(file.originalname)),
       }),
+      fileFilter: extensionFilter(DOCUMENT_EXTENSIONS),
       limits: { fileSize: 20 * 1024 * 1024 }, // 20 MB
     }),
   )

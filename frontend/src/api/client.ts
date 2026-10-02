@@ -15,14 +15,27 @@ http.interceptors.request.use((config) => {
 http.interceptors.response.use(
   (res) => res,
   (err) => {
-    if (err?.response?.status === 401) {
+    // Login so'rovining o'zi 401 qaytarsa (noto'g'ri parol) sahifani qayta yuklamaymiz —
+    // aks holda foydalanuvchi "Telefon yoki parol noto'g'ri" xabarini ko'rmay qolardi.
+    const isLoginRequest = err?.config?.url?.includes('/auth/login');
+    if (err?.response?.status === 401 && !isLoginRequest) {
       localStorage.removeItem('token');
       localStorage.removeItem('user');
-      window.location.href = '/login';
+      if (window.location.pathname !== '/login') window.location.href = '/login';
     }
     return Promise.reject(err);
   },
 );
+
+/** Backend xatosidan foydalanuvchiga ko'rsatiladigan matn (class-validator massivini ham qo'llab-quvvatlaydi). */
+export function apiErrorMessage(err: any, fallback = 'Xatolik yuz berdi'): string {
+  const message = err?.response?.data?.message;
+  if (Array.isArray(message)) return message.join('. ');
+  if (typeof message === 'string' && message) return message;
+  if (err?.response?.status === 403) return "Bu amal uchun ruxsatingiz yo'q";
+  if (!err?.response) return "Server bilan aloqa yo'q. Internet aloqasini tekshiring";
+  return fallback;
+}
 
 // ---------- Turlar ----------
 export interface TeacherDocument {
@@ -200,7 +213,6 @@ export interface AppUser {
   role: AppRole;
   teacherId?: string;
   avatarUrl?: string;
-  plainPassword?: string;
 }
 
 export interface Homework {

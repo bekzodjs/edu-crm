@@ -1,21 +1,71 @@
-import { Body, Controller, Get, Injectable, Module, Param, Post, Query, UseGuards } from '@nestjs/common';
+import {
+  BadRequestException,
+  Body,
+  Controller,
+  Get,
+  Injectable,
+  Module,
+  NotFoundException,
+  Param,
+  Post,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
+import { Type } from 'class-transformer';
+import {
+  ArrayMaxSize,
+  IsArray,
+  IsIn,
+  IsInt,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  Max,
+  MaxLength,
+  Min,
+  ValidateNested,
+} from 'class-validator';
 import { Attendance, Lesson, Student, Group } from '../database/schemas';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
+import { CurrentUser } from '../common/decorators/current-user.decorator';
+import {
+  assertStudentVisible,
+  AuthUser,
+  loadGroupForUser,
+  teacherGroupIds,
+  teacherScope,
+} from '../common/utils/access';
 import { TelegramModule, NotificationsService } from '../telegram/telegram.module';
 
+const ATTENDANCE_STATUSES = ['PRESENT', 'ABSENT', 'LATE', 'EXCUSED'] as const;
+type AttendanceStatus = (typeof ATTENDANCE_STATUSES)[number];
+
 export class MarkAttendanceItemDto {
+  @IsString()
+  @IsNotEmpty()
   studentId: string;
-  status: 'PRESENT' | 'ABSENT' | 'LATE' | 'EXCUSED';
-  note?: string;
-  lateMinutes?: number;
+
+  @IsIn(ATTENDANCE_STATUSES, { message: "Davomat holati noto'g'ri" })
+  status: AttendanceStatus;
+
+  @IsOptional() @IsString() @MaxLength(500) note?: string;
+
+  @IsOptional() @IsInt() @Min(0) @Max(600) lateMinutes?: number;
 }
 
 export class MarkAttendanceDto {
+  @IsString()
+  @IsNotEmpty()
   lessonId: string;
+
+  @IsArray()
+  @ArrayMaxSize(500)
+  @ValidateNested({ each: true })
+  @Type(() => MarkAttendanceItemDto)
   entries: MarkAttendanceItemDto[];
 }
 
@@ -30,11 +80,26 @@ export class AttendanceService {
   ) {}
 
   /** Bir dars uchun bir nechta o'quvchining davomatini birdaniga belgilaydi. */
-  async markBulk(dto: MarkAttendanceDto) {
+  async markBulk(dto: MarkAttendanceDto, user: AuthUser) {
     const lesson = await this.lessonModel.findById(dto.lessonId);
-    const group = lesson ? await this.groupModel.findById(lesson.groupId) : null;
-    const results = [];
+    if (!lesson) throw new NotFoundException('Dars topilmadi');
+    if (lesson.status === 'CANCELLED') throw new BadRequestException('Bekor qilingan dars uchun davomat belgilanmaydi');
+    // TEACHER faqat o'z guruhining darsiga davomat qo'ya oladi.
+    const group = await loadGroupForUser(this.groupModel, lesson.groupId, user);
 
+    const groupStudentIds = new Set(group.studentIds);
+    const outsider = dto.entries.find((e) => !groupStudentIds.has(e.studentId));
+    if (outsider) throw new BadRequestException("O'quvchi bu guruhga a'zo emas");
+
+    // Avvalgi holatni bilish uchun: ota-onaga xabar faqat holat haqiqatan o'zgarganda yuboriladi
+    // (davomatni qayta saqlash har safar takroriy xabar va fikr-so'rov yubormasligi uchun).
+    const previous = await this.attendanceModel.find({ lessonId: dto.lessonId });
+    const previousStatus = new Map(previous.map((a) => [a.studentId, a.status]));
+    const students = await this.studentModel.find({ _id: { $in: dto.entries.map((e) => e.studentId) } });
+    const studentMap = new Map(students.map((s) => [s.id, s]));
+    const dateStr = lesson.date.toISOString().slice(0, 10);
+
+    const results = [];
     for (const entry of dto.entries) {
       const record = await this.attendanceModel.findOneAndUpdate(
         { lessonId: dto.lessonId, studentId: entry.studentId },
@@ -48,10 +113,11 @@ export class AttendanceService {
       );
       results.push(record);
 
+      if (previousStatus.get(entry.studentId) === entry.status) continue;
+
       // Kelmagan yoki kechikkan o'quvchi ota-onasiga avtomatik xabar
       if (entry.status === 'ABSENT' || entry.status === 'LATE') {
-        const student = await this.studentModel.findById(entry.studentId);
-        const dateStr = lesson ? lesson.date.toISOString().slice(0, 10) : '';
+        const student = studentMap.get(entry.studentId);
         const lateText = entry.status === 'LATE' && entry.lateMinutes ? ` (${entry.lateMinutes} minut)` : '';
         const message =
           entry.status === 'ABSENT'
@@ -65,31 +131,40 @@ export class AttendanceService {
       }
 
       // Kelgan o'quvchi uchun: ota-onadan kunlik fikr-mulohaza (ijobiy/salbiy) so'raladi
-      if (entry.status === 'PRESENT' && lesson && group) {
+      if (entry.status === 'PRESENT') {
         await this.notifications.requestLessonFeedback(entry.studentId, group.teacherId, group.id, dto.lessonId);
       }
     }
 
-    if (lesson) {
-      lesson.status = 'COMPLETED';
-      await lesson.save();
-    }
+    lesson.status = 'COMPLETED';
+    await lesson.save();
 
     return results;
   }
 
-  findByLesson(lessonId: string) {
+  async findByLesson(lessonId: string, user: AuthUser) {
+    const lesson = await this.lessonModel.findById(lessonId);
+    if (!lesson) throw new NotFoundException('Dars topilmadi');
+    await loadGroupForUser(this.groupModel, lesson.groupId, user);
     return this.attendanceModel.find({ lessonId });
   }
 
-  findByStudent(studentId: string) {
+  async findByStudent(studentId: string, user: AuthUser) {
+    await assertStudentVisible(this.groupModel, studentId, user);
     return this.attendanceModel.find({ studentId }).sort({ markedAt: -1 });
   }
 
   /** Sanalar oralig'ida (va ixtiyoriy guruh bo'yicha) har bir o'quvchi uchun kelmadi/kechikdi/sababli hisobot. */
-  async report(query: { from?: string; to?: string; groupId?: string }) {
+  async report(query: { from?: string; to?: string; groupId?: string }, user: AuthUser) {
     const lessonFilter: any = {};
-    if (query.groupId) lessonFilter.groupId = query.groupId;
+    const scope = teacherScope(user);
+    if (scope) {
+      // TEACHER faqat o'z guruhlari bo'yicha hisobotni ko'radi.
+      const ids = await teacherGroupIds(this.groupModel, scope);
+      lessonFilter.groupId = query.groupId ? (ids.includes(query.groupId) ? query.groupId : '__none__') : { $in: ids };
+    } else if (query.groupId) {
+      lessonFilter.groupId = query.groupId;
+    }
     if (query.from || query.to) {
       lessonFilter.date = {};
       if (query.from) lessonFilter.date.$gte = new Date(query.from);
@@ -100,7 +175,7 @@ export class AttendanceService {
       }
     }
 
-    const lessons = await this.lessonModel.find(lessonFilter);
+    const lessons = await this.lessonModel.find(lessonFilter).select('_id');
     const lessonIds = lessons.map((l) => l.id);
 
     const attendances = lessonIds.length
@@ -148,23 +223,28 @@ export class AttendanceController {
 
   @Roles('SUPERADMIN', 'ADMIN', 'TEACHER')
   @Post()
-  markBulk(@Body() dto: MarkAttendanceDto) {
-    return this.attendanceService.markBulk(dto);
+  markBulk(@Body() dto: MarkAttendanceDto, @CurrentUser() user: AuthUser) {
+    return this.attendanceService.markBulk(dto, user);
   }
 
   @Get('lesson/:lessonId')
-  findByLesson(@Param('lessonId') lessonId: string) {
-    return this.attendanceService.findByLesson(lessonId);
+  findByLesson(@Param('lessonId') lessonId: string, @CurrentUser() user: AuthUser) {
+    return this.attendanceService.findByLesson(lessonId, user);
   }
 
   @Get('student/:studentId')
-  findByStudent(@Param('studentId') studentId: string) {
-    return this.attendanceService.findByStudent(studentId);
+  findByStudent(@Param('studentId') studentId: string, @CurrentUser() user: AuthUser) {
+    return this.attendanceService.findByStudent(studentId, user);
   }
 
   @Get('report')
-  report(@Query('from') from?: string, @Query('to') to?: string, @Query('groupId') groupId?: string) {
-    return this.attendanceService.report({ from, to, groupId });
+  report(
+    @CurrentUser() user: AuthUser,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+    @Query('groupId') groupId?: string,
+  ) {
+    return this.attendanceService.report({ from, to, groupId }, user);
   }
 }
 

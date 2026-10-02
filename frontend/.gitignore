@@ -2,14 +2,7 @@ node_modules/
 dist/
 .env
 *.log
-dist-verify-check/
-dist-verify-check2/
-dist-verify-check3/
-dist-verify-check4/
-dist-verify-check5/
-dist-verify-check6/
-dist-verify-check7/
-dist-verify-check8/
-dist-verify-check9/
-dist-verify-check10/
-dist-verify-check11/
+*.tsbuildinfo
+# tsc -b tomonidan tasodifan yaratilgan fayllar (Vite .js versiyani .ts dan oldin o'qiydi)
+vite.config.js
+vite.config.d.ts

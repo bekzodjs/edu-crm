@@ -15,6 +15,7 @@ import PaymentsHub from './pages/PaymentsHub';
 import Arizalar from './pages/Arizalar';
 import Users from './pages/Users';
 import Profile from './pages/Profile';
+import ErrorToaster from './components/ErrorToaster';
 
 export default function App() {
   return (
@@ -49,6 +50,7 @@ export default function App() {
             <Route path="/profile" element={<Profile />} />
           </Route>
         </Routes>
+        <ErrorToaster />
       </AuthProvider>
       </ThemeProvider>
     </BrowserRouter>

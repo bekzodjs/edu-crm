@@ -1,7 +1,6 @@
 import { FormEvent, useEffect, useState } from 'react';
-import { UsersApi, TeachersApi, AppUser, AppRole, Teacher } from '../api/client';
+import { UsersApi, TeachersApi, AppUser, AppRole, Teacher, apiErrorMessage } from '../api/client';
 import { useAuth } from '../context/AuthContext';
-import { Eye, EyeOff } from '../components/icons';
 import ConfirmDialog from '../components/ConfirmDialog';
 import Pagination from '../components/Pagination';
 import { usePagination } from '../hooks/usePagination';
@@ -34,7 +33,6 @@ export default function Users() {
   const [form, setForm] = useState(emptyForm);
   const [removeTarget, setRemoveTarget] = useState<AppUser | null>(null);
   const [error, setError] = useState('');
-  const [revealed, setRevealed] = useState<Record<string, boolean>>({});
   const [resetTarget, setResetTarget] = useState<AppUser | null>(null);
   const [resetPwd, setResetPwd] = useState('');
   const [resetError, setResetError] = useState('');
@@ -70,7 +68,7 @@ export default function Users() {
       setResetPwd('');
       load();
     } catch (err: any) {
-      setResetError(err?.response?.data?.message || 'Xatolik yuz berdi');
+      setResetError(apiErrorMessage(err));
     } finally {
       setResetSaving(false);
     }
@@ -118,7 +116,7 @@ export default function Users() {
       setShowForm(false);
       load();
     } catch (err: any) {
-      setError(err?.response?.data?.message || 'Xatolik yuz berdi');
+      setError(apiErrorMessage(err));
     }
   }
 
@@ -127,7 +125,7 @@ export default function Users() {
     try {
       await UsersApi.remove(removeTarget.id);
     } catch (err: any) {
-      alert(err?.response?.data?.message || 'O‘chirishda xatolik yuz berdi');
+      alert(apiErrorMessage(err, 'O‘chirishda xatolik yuz berdi'));
     }
     setRemoveTarget(null);
     load();
@@ -228,7 +226,6 @@ export default function Users() {
               <th>Ism</th>
               <th>Telefon</th>
               <th>Rol</th>
-              {canManage && <th>Parol</th>}
               {(canManage || canResetPassword) && <th></th>}
             </tr>
           </thead>
@@ -242,22 +239,6 @@ export default function Users() {
                 <td>
                   <span className={ROLE_BADGES[u.role]}>{ROLE_LABELS[u.role]}</span>
                 </td>
-                {canManage && (
-                <td>
-                  {u.plainPassword ? (
-                    <button
-                      type="button"
-                      className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-700"
-                      onClick={() => setRevealed((r) => ({ ...r, [u.id]: !r[u.id] }))}
-                    >
-                      <span className="font-mono">{revealed[u.id] ? u.plainPassword : '••••••••'}</span>
-                      {revealed[u.id] ? <EyeOff size={14} /> : <Eye size={14} />}
-                    </button>
-                  ) : (
-                    <span className="text-slate-400 text-sm">—</span>
-                  )}
-                </td>
-                )}
                 {(canManage || canResetPassword) && (
                   <td className="text-right whitespace-nowrap">
                     {canManage && (

@@ -3,14 +3,14 @@ FROM node:20-alpine
 WORKDIR /app
 
 COPY package*.json ./
-RUN npm install
+RUN npm ci
 
 COPY . .
 
-RUN npx prisma generate
 RUN npm run build
 
 EXPOSE 3000
 
-# Konteyner ishga tushganda: sxema push qilinadi, seed ishga tushiriladi, so'ng server
-CMD sh -c "npx prisma db push --accept-data-loss && (npm run seed || true) && npm run start:prod"
+# Konteyner ishga tushganda: seed (birinchi admin + demo ma'lumot, idempotent), so'ng server.
+# Mongoose sxemalari va indekslari ilova ishga tushganda avtomatik yaratiladi.
+CMD sh -c "(npm run seed || true) && npm run start:prod"

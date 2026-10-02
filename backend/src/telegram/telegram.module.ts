@@ -1,11 +1,14 @@
 import {
   Controller,
+  ForbiddenException,
   forwardRef,
   Get,
   Inject,
   Injectable,
   Logger,
   Module,
+  NotFoundException,
+  OnModuleDestroy,
   OnModuleInit,
   Param,
   Post,
@@ -32,6 +35,8 @@ import {
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
+import { CurrentUser } from '../common/decorators/current-user.decorator';
+import { AuthUser } from '../common/utils/access';
 import { DebtsModule, DebtsService } from '../debts/debts.module';
 import { GradesModule, GradesService } from '../grades/grades.module';
 
@@ -57,7 +62,7 @@ interface PendingFeedback {
  * ikkalasi ham alohida-alohida ro'yxatda va admin panelda ko'rinadi.
  */
 @Injectable()
-export class TelegramService implements OnModuleInit {
+export class TelegramService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(TelegramService.name);
   private bot: TelegramBot | null = null;
 
@@ -96,8 +101,15 @@ export class TelegramService implements OnModuleInit {
     }
 
     this.bot = new TelegramBot(token, { polling: true });
+    this.bot.on('polling_error', (err) => this.logger.error(`Telegram polling xatosi: ${err.message}`));
     this.registerHandlers();
     this.logger.log('Telegram bot polling rejimida ishga tushdi.');
+  }
+
+  // Server to'xtaganda (yoki watch rejimida qayta ishga tushganda) polling to'xtatiladi —
+  // aks holda ikki nusxa bir vaqtda polling qilib "409 Conflict" xatolari chiqadi.
+  async onModuleDestroy() {
+    if (this.bot) await this.bot.stopPolling().catch(() => undefined);
   }
 
   isEnabled() {
@@ -108,8 +120,20 @@ export class TelegramService implements OnModuleInit {
     if (!this.bot) return;
     const bot = this.bot;
 
+    // Handler ichidagi xato (masalan DB yoki Telegram API xatosi) "unhandled rejection" bo'lib
+    // butun serverni yiqitmasligi uchun barcha handlerlar shu o'ram orqali ro'yxatdan o'tadi.
+    const guard =
+      (fn: (...args: any[]) => Promise<void>) =>
+      (...args: any[]) => {
+        fn(...args).catch((err) => this.logger.error(`Telegram handler xatosi: ${err?.message || err}`));
+      };
+    const onText = (re: RegExp, fn: (msg: TelegramBot.Message, match: RegExpExecArray | null) => Promise<void>) =>
+      bot.onText(re, guard(fn));
+    const on = (event: 'message' | 'location' | 'edited_message', fn: (msg: TelegramBot.Message) => Promise<void>) =>
+      (bot.on as any)(event, guard(fn));
+
     // ---------- /start <kod> — ota-ona YOKI o'qituvchi bog'lanishi ----------
-    bot.onText(/\/start(?:\s+(.+))?/, async (msg, match) => {
+    onText(/^\/start(?:@\w+)?(?:\s+(.+))?$/, async (msg, match) => {
       const chatId = String(msg.chat.id);
       const code = match?.[1]?.trim();
 
@@ -123,8 +147,15 @@ export class TelegramService implements OnModuleInit {
         return;
       }
 
+      const alreadyUsed = 'Bu kod allaqachon boshqa hisob tomonidan ishlatilgan. Administratordan yangi kod so‘rang.';
+
       const parentLink = await this.parentLinkModel.findOne({ linkCode: code });
       if (parentLink) {
+        // Kod bir martalik: bog'langandan keyin uni bilgan boshqa odam chatni "o'g'irlay" olmaydi.
+        if (parentLink.chatId && parentLink.chatId !== chatId) {
+          await bot.sendMessage(chatId, alreadyUsed);
+          return;
+        }
         parentLink.chatId = chatId;
         parentLink.linkedAt = new Date();
         await parentLink.save();
@@ -143,6 +174,10 @@ export class TelegramService implements OnModuleInit {
 
       const teacherLink = await this.teacherLinkModel.findOne({ linkCode: code });
       if (teacherLink) {
+        if (teacherLink.chatId && teacherLink.chatId !== chatId) {
+          await bot.sendMessage(chatId, alreadyUsed);
+          return;
+        }
         teacherLink.chatId = chatId;
         teacherLink.linkedAt = new Date();
         await teacherLink.save();
@@ -162,7 +197,7 @@ export class TelegramService implements OnModuleInit {
     });
 
     // ---------- Ota-ona: qarz va davomat ----------
-    bot.onText(/\/qarz/, async (msg) => {
+    onText(/^\/qarz(?:@\w+)?\b/, async (msg) => {
       const chatId = String(msg.chat.id);
       const links = await this.parentLinkModel.find({ chatId });
       if (!links.length) {
@@ -179,7 +214,7 @@ export class TelegramService implements OnModuleInit {
       await bot.sendMessage(chatId, text.trim());
     });
 
-    bot.onText(/\/davomat/, async (msg) => {
+    onText(/^\/davomat(?:@\w+)?\b/, async (msg) => {
       const chatId = String(msg.chat.id);
       const links = await this.parentLinkModel.find({ chatId });
       if (!links.length) {
@@ -204,7 +239,7 @@ export class TelegramService implements OnModuleInit {
       await bot.sendMessage(chatId, text.trim());
     });
 
-    bot.onText(/\/baho/, async (msg) => {
+    onText(/^\/baho(?:@\w+)?\b/, async (msg) => {
       const chatId = String(msg.chat.id);
       const links = await this.parentLinkModel.find({ chatId });
       if (!links.length) {
@@ -237,7 +272,7 @@ export class TelegramService implements OnModuleInit {
       });
     };
 
-    bot.onText(/\/keldim/, async (msg) => {
+    onText(/^\/keldim(?:@\w+)?\b/, async (msg) => {
       const chatId = String(msg.chat.id);
       const link = await this.teacherLinkModel.findOne({ chatId });
       if (!link) {
@@ -248,7 +283,7 @@ export class TelegramService implements OnModuleInit {
       await askForLocation(chatId, 'Ishga kelganingizni tasdiqlash uchun joylashuvingizni yuboring:');
     });
 
-    bot.onText(/\/ketyapman/, async (msg) => {
+    onText(/^\/ketyapman(?:@\w+)?\b/, async (msg) => {
       const chatId = String(msg.chat.id);
       const link = await this.teacherLinkModel.findOne({ chatId });
       if (!link) {
@@ -260,7 +295,7 @@ export class TelegramService implements OnModuleInit {
     });
 
     // Joylashuv (oddiy yoki jonli joylashuvning birinchi xabari) qabul qilinganda
-    bot.on('location', async (msg) => {
+    on('location', async (msg) => {
       const chatId = String(msg.chat.id);
       const pending = this.pendingTeacherAction.get(chatId);
       if (!pending || !msg.location) return;
@@ -285,7 +320,7 @@ export class TelegramService implements OnModuleInit {
     });
 
     // Jonli joylashuv davomida keladigan yangilanishlar (Telegram edited_message sifatida yuboradi)
-    bot.on('edited_message', async (msg) => {
+    on('edited_message', async (msg) => {
       if (!msg.location) return;
       const chatId = String(msg.chat.id);
       const link = await this.teacherLinkModel.findOne({ chatId });
@@ -300,7 +335,7 @@ export class TelegramService implements OnModuleInit {
     });
 
     // ---------- Ariza: o'qituvchi (ta'til) YOKI ota-ona (farzandi haqida) ----------
-    bot.onText(/\/ariza(?:\s+([\s\S]+))?/, async (msg, match) => {
+    onText(/^\/ariza(?:@\w+)?(?:\s+([\s\S]+))?$/, async (msg, match) => {
       const chatId = String(msg.chat.id);
       const reason = match?.[1]?.trim();
 
@@ -333,7 +368,7 @@ export class TelegramService implements OnModuleInit {
     });
 
     // Foydalanuvchidan keladigan matnli javoblar: fikr-mulohaza (feedback) yoki ariza sababi
-    bot.on('message', async (msg) => {
+    on('message', async (msg) => {
       if (!msg.text || msg.text.startsWith('/')) return;
       const chatId = String(msg.chat.id);
 
@@ -397,14 +432,19 @@ export class TelegramService implements OnModuleInit {
     ctx: { studentId: string; teacherId: string; groupId: string; lessonId?: string },
   ) {
     if (!this.bot) return;
-    this.pendingFeedback.set(chatId, { ...ctx, stage: 'SENTIMENT' });
-    await this.bot.sendMessage(chatId, "Bugungi dars qanday o'tdi?", {
-      reply_markup: {
-        keyboard: [[{ text: '\uD83D\uDC4D Ijobiy' }, { text: '\uD83D\uDC4E Salbiy' }]],
-        one_time_keyboard: true,
-        resize_keyboard: true,
-      },
-    });
+    try {
+      await this.bot.sendMessage(chatId, "Bugungi dars qanday o'tdi?", {
+        reply_markup: {
+          keyboard: [[{ text: '\uD83D\uDC4D Ijobiy' }, { text: '\uD83D\uDC4E Salbiy' }]],
+          one_time_keyboard: true,
+          resize_keyboard: true,
+        },
+      });
+      this.pendingFeedback.set(chatId, { ...ctx, stage: 'SENTIMENT' });
+    } catch (err) {
+      // Ota-ona botni bloklagan bo'lsa ham davomatni saqlash to'xtab qolmasligi kerak.
+      this.logger.error(`Fikr-mulohaza so'rovini yuborishda xato: ${err}`);
+    }
   }
 
   private async submitTeacherLeaveRequest(teacherId: string, chatId: string, reason: string) {
@@ -508,14 +548,20 @@ export class TelegramController {
     private teacherLinkService: TeacherLinkService,
     private telegramService: TelegramService,
     @InjectModel(NotificationLog.name) private notificationLogModel: Model<NotificationLog>,
+    @InjectModel(Student.name) private studentModel: Model<Student>,
+    @InjectModel(Teacher.name) private teacherModel: Model<Teacher>,
   ) {}
 
+  // Bog'lash kodlari — maxfiy: kodni bilgan odam ota-ona/o'qituvchi nomidan botga ulanishi
+  // mumkin. Shuning uchun ularni faqat rahbariyat yaratadi va ko'radi.
   @Roles('SUPERADMIN', 'ADMIN')
   @Post('link/:studentId')
-  createLink(@Param('studentId') studentId: string) {
+  async createLink(@Param('studentId') studentId: string) {
+    if (!(await this.studentModel.exists({ _id: studentId }))) throw new NotFoundException('O‘quvchi topilmadi');
     return this.parentLinkService.createLinkCode(studentId);
   }
 
+  @Roles('SUPERADMIN', 'ADMIN')
   @Get('link/:studentId')
   getLinks(@Param('studentId') studentId: string) {
     return this.parentLinkService.findByStudent(studentId);
@@ -523,12 +569,17 @@ export class TelegramController {
 
   @Roles('SUPERADMIN', 'ADMIN')
   @Post('teacher-link/:teacherId')
-  createTeacherLink(@Param('teacherId') teacherId: string) {
+  async createTeacherLink(@Param('teacherId') teacherId: string) {
+    if (!(await this.teacherModel.exists({ _id: teacherId }))) throw new NotFoundException('O‘qituvchi topilmadi');
     return this.teacherLinkService.createLinkCode(teacherId);
   }
 
+  @Roles('SUPERADMIN', 'ADMIN', 'TEACHER')
   @Get('teacher-link/:teacherId')
-  getTeacherLinks(@Param('teacherId') teacherId: string) {
+  getTeacherLinks(@Param('teacherId') teacherId: string, @CurrentUser() user: AuthUser) {
+    if (user.role === 'TEACHER' && user.teacherId !== teacherId) {
+      throw new ForbiddenException("Faqat o'zingizning ma'lumotlaringizni ko'rishingiz mumkin");
+    }
     return this.teacherLinkService.findByTeacher(teacherId);
   }
 
@@ -537,6 +588,7 @@ export class TelegramController {
     return { enabled: this.telegramService.isEnabled() };
   }
 
+  @Roles('SUPERADMIN', 'ADMIN', 'RAHBAR')
   @Get('logs/:studentId')
   logs(@Param('studentId') studentId: string) {
     return this.notificationLogModel.find({ studentId }).sort({ createdAt: -1 }).limit(50);

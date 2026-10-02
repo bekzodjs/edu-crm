@@ -9,6 +9,7 @@ import {
   Injectable,
   Module,
   NotFoundException,
+  OnModuleInit,
   Param,
   Patch,
   Post,
@@ -25,7 +26,8 @@ import { IsIn, IsNotEmpty, IsOptional, IsString, MinLength } from 'class-validat
 import { diskStorage } from 'multer';
 import { existsSync, mkdirSync, unlink } from 'fs';
 import { join } from 'path';
-import { User } from '../database/schemas';
+import { Teacher, User } from '../database/schemas';
+import { extensionFilter, IMAGE_EXTENSIONS, safeFilename } from '../common/utils/upload';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles, AppRole } from '../common/decorators/roles.decorator';
@@ -81,11 +83,17 @@ export class UpdateUserDto {
 }
 
 export class UpdateOwnProfileDto {
+  @IsOptional()
+  @IsString()
   currentPassword?: string;
+
+  @IsOptional()
+  @IsString()
   newPassword?: string;
 }
 
 export class ResetUserPasswordDto {
+  @IsString()
   newPassword: string;
 }
 
@@ -99,12 +107,12 @@ interface UploadedFileLike {
 
 const AVATAR_UPLOAD_ROOT = join(process.cwd(), 'uploads', 'avatars');
 
-// Hash qilingan parol hech qachon qaytarilmaydi. Ochiq matnli nusxa (plainPassword) faqat
-// SUPERADMIN uchun ro'yxatda (includePlain=true) beriladi — boshqa hech kimga.
-function toSafeUser(user: User, includePlain = false) {
+// Parol (hatto hash ko'rinishida ham) hech qachon API orqali qaytarilmaydi.
+// Ochiq matnli parollar umuman saqlanmaydi — unutilgan parol "Parolni almashtirish" orqali tiklanadi.
+function toSafeUser(user: User) {
   const obj: any = user.toObject ? user.toObject() : user;
   delete obj.password;
-  if (!includePlain) delete obj.plainPassword;
+  delete obj.plainPassword;
   return obj;
 }
 
@@ -115,13 +123,24 @@ function toSafeUser(user: User, includePlain = false) {
  * shaxsiy profilini (rasm, parol) /users/me orqali o'zi boshqaradi.
  */
 @Injectable()
-export class UsersService {
-  constructor(@InjectModel(User.name) private userModel: Model<User>) {}
+export class UsersService implements OnModuleInit {
+  constructor(
+    @InjectModel(User.name) private userModel: Model<User>,
+    @InjectModel(Teacher.name) private teacherModel: Model<Teacher>,
+  ) {}
 
-  async findAll(requesterRole: string) {
+  // Avvalgi versiyalar parollarning ochiq matnli nusxasini (plainPassword) saqlagan —
+  // ilova ishga tushganda ular bazadan butunlay o'chiriladi.
+  async onModuleInit() {
+    await this.userModel.collection.updateMany(
+      { plainPassword: { $exists: true } },
+      { $unset: { plainPassword: '' } },
+    );
+  }
+
+  async findAll() {
     const users = await this.userModel.find().sort({ name: 1 });
-    const includePlain = requesterRole === 'SUPERADMIN';
-    return users.map((u) => toSafeUser(u, includePlain));
+    return users.map((u) => toSafeUser(u));
   }
 
   async findOne(id: string) {
@@ -144,17 +163,23 @@ export class UsersService {
     }
   }
 
+  private async assertTeacherExists(teacherId?: string) {
+    if (!teacherId) return;
+    const teacher = await this.teacherModel.findById(teacherId);
+    if (!teacher) throw new BadRequestException("Bog'lanadigan o'qituvchi topilmadi");
+  }
+
   async create(dto: CreateUserDto) {
     this.assertNotSuperadminRole(dto.role);
     dto.phone = dto.phone.trim();
     await this.assertPhoneFree(dto.phone);
+    await this.assertTeacherExists(dto.teacherId);
 
     const hashed = await bcrypt.hash(dto.password, 10);
     const user = await this.userModel.create({
       name: dto.name,
       phone: dto.phone,
       password: hashed,
-      plainPassword: dto.password,
       role: dto.role,
       teacherId: dto.teacherId,
     });
@@ -177,13 +202,14 @@ export class UsersService {
       if (dto.phone !== user.phone) await this.assertPhoneFree(dto.phone, id);
     }
 
+    if (dto.teacherId) await this.assertTeacherExists(dto.teacherId);
+
     if (dto.name !== undefined) user.name = dto.name;
     if (dto.phone !== undefined) user.phone = dto.phone;
     if (dto.role !== undefined) user.role = dto.role;
     if (dto.teacherId !== undefined) user.teacherId = dto.teacherId;
     if (dto.password) {
       user.password = await bcrypt.hash(dto.password, 10);
-      user.plainPassword = dto.password;
     }
 
     await user.save();
@@ -222,7 +248,6 @@ export class UsersService {
       throw new BadRequestException("Yangi parol kamida 4 ta belgidan iborat bo'lishi kerak");
     }
     user.password = await bcrypt.hash(dto.newPassword, 10);
-    user.plainPassword = dto.newPassword;
     await user.save();
     return toSafeUser(user);
   }
@@ -241,12 +266,12 @@ export class UsersService {
     if (!ok) throw new UnauthorizedException("Joriy parol noto'g'ri");
 
     user.password = await bcrypt.hash(dto.newPassword, 10);
-    user.plainPassword = dto.newPassword;
     await user.save();
     return toSafeUser(user);
   }
 
   async setOwnAvatar(userId: string, file: UploadedFileLike) {
+    if (!file) throw new BadRequestException('Rasm fayli yuklanmadi');
     const user = await this.userModel.findById(userId);
     if (!user) throw new NotFoundException('Foydalanuvchi topilmadi');
     if (user.avatarUrl) {
@@ -299,11 +324,9 @@ export class UsersController {
           if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
           cb(null, dir);
         },
-        filename: (_req: any, file: any, cb: any) => {
-          const safe = file.originalname.replace(/[^a-zA-Z0-9._-]/g, '_');
-          cb(null, `${Date.now()}-${safe}`);
-        },
+        filename: (_req: any, file: any, cb: any) => cb(null, safeFilename(file.originalname)),
       }),
+      fileFilter: extensionFilter(IMAGE_EXTENSIONS),
       limits: { fileSize: 5 * 1024 * 1024 }, // 5 MB
     }),
   )
@@ -319,8 +342,8 @@ export class UsersController {
   // ---------- Foydalanuvchilarni boshqarish (SUPERADMIN/ADMIN) ----------
   @Roles('SUPERADMIN', 'ADMIN')
   @Get()
-  findAll(@CurrentUser() currentUser: { role: string }) {
-    return this.usersService.findAll(currentUser.role);
+  findAll() {
+    return this.usersService.findAll();
   }
 
   @Roles('SUPERADMIN')

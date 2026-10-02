@@ -1,4 +1,18 @@
-import { Body, Controller, Get, Injectable, Module, Param, Post, Query, UseGuards } from '@nestjs/common';
+import {
+  BadRequestException,
+  Body,
+  Controller,
+  ForbiddenException,
+  Get,
+  Injectable,
+  Module,
+  NotFoundException,
+  Param,
+  Post,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
+import { IsIn, IsNotEmpty, IsNumber, IsOptional, IsString, Matches, Max, MaxLength, Min } from 'class-validator';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Payment, Student, Group, Teacher } from '../database/schemas';
@@ -6,15 +20,29 @@ import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
-import { ForbiddenException } from '@nestjs/common';
 import { TelegramModule, NotificationsService } from '../telegram/telegram.module';
 
+const PAYMENT_METHODS = ['CASH', 'CARD', 'PAYME', 'CLICK', 'OTHER'] as const;
+export const PERIOD_PATTERN = /^\d{4}-(0[1-9]|1[0-2])$/;
+
 export class CreatePaymentDto {
+  @IsString()
+  @IsNotEmpty({ message: "O'quvchi tanlanishi shart" })
   studentId: string;
+
+  @IsNumber({}, { message: "Summa son bo'lishi kerak" })
+  @Min(1, { message: "Summa musbat bo'lishi kerak" })
+  @Max(1_000_000_000)
   amount: number;
-  method?: 'CASH' | 'CARD' | 'PAYME' | 'CLICK' | 'OTHER';
+
+  @IsOptional()
+  @IsIn(PAYMENT_METHODS, { message: "To'lov usuli noto'g'ri" })
+  method?: (typeof PAYMENT_METHODS)[number];
+
+  @Matches(PERIOD_PATTERN, { message: "Oy YYYY-MM formatida bo'lishi kerak" })
   periodMonth: string; // "2026-09"
-  note?: string;
+
+  @IsOptional() @IsString() @MaxLength(500) note?: string;
 }
 
 export interface PaymentListQuery {
@@ -41,6 +69,9 @@ export class PaymentsService {
   ) {}
 
   async create(dto: CreatePaymentDto) {
+    const student = await this.studentModel.findById(dto.studentId);
+    if (!student) throw new NotFoundException('O‘quvchi topilmadi');
+
     const payment = await this.paymentModel.create({
       studentId: dto.studentId,
       amount: dto.amount,
@@ -49,11 +80,10 @@ export class PaymentsService {
       note: dto.note,
     });
 
-    const student = await this.studentModel.findById(dto.studentId);
     await this.notifications.notifyStudentParents(
       dto.studentId,
       'PAYMENT_RECEIVED',
-      `✅ ${student?.fullName} uchun ${dto.periodMonth} oyi bo'yicha ${dto.amount.toLocaleString()} so'm to'lov qabul qilindi. Rahmat!`,
+      `✅ ${student.fullName} uchun ${dto.periodMonth} oyi bo'yicha ${dto.amount.toLocaleString()} so'm to'lov qabul qilindi. Rahmat!`,
     );
 
     return payment;
@@ -91,6 +121,7 @@ export class PaymentsService {
    * "yig'ilgan summa"ga qo'shiladi. Daromad = yig'ilgan summa * o'qituvchining maosh foizi.
    */
   async teacherEarnings(period?: string) {
+    if (period && !PERIOD_PATTERN.test(period)) throw new BadRequestException("Oy YYYY-MM formatida bo'lishi kerak");
     const targetPeriod = period || currentPeriod();
 
     const [teachers, groups, students, payments] = await Promise.all([
@@ -165,6 +196,7 @@ export class PaymentsService {
 
   /** Bitta o'qituvchi o'zining daromadi va guruhlari statistikasini ko'rishi uchun (oylar bo'yicha tarix). */
   async teacherEarningsHistory(teacherId: string, months = 6) {
+    months = Math.min(24, Math.max(1, Math.floor(months) || 6));
     const now = new Date();
     const periods: string[] = [];
     for (let i = 0; i < months; i++) {
@@ -225,6 +257,7 @@ export class PaymentsController {
     return this.paymentsService.teacherEarningsHistory(teacherId, months ? Number(months) : undefined);
   }
 
+  @Roles('SUPERADMIN', 'ADMIN', 'RAHBAR')
   @Get('student/:studentId')
   findByStudent(@Param('studentId') studentId: string) {
     return this.paymentsService.findByStudent(studentId);

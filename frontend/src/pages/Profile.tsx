@@ -1,6 +1,6 @@
 import { FormEvent, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ProfileApi, TeacherEarningsApi, TeacherEarningHistoryRow, FeedbackApi, FeedbackSummary, STATIC_URL } from '../api/client';
+import { ProfileApi, TeacherEarningsApi, TeacherEarningHistoryRow, FeedbackApi, FeedbackSummary, STATIC_URL, apiErrorMessage } from '../api/client';
 import { useEffect } from 'react';
 import { TrendingUp, ThumbsUp, ThumbsDown, GraduationCap } from '../components/icons';
 import { useAuth } from '../context/AuthContext';
@@ -79,7 +79,7 @@ export default function Profile() {
       setNewPassword('');
       setConfirmPassword('');
     } catch (err: any) {
-      setError(err?.response?.data?.message || 'Xatolik yuz berdi');
+      setError(apiErrorMessage(err));
     } finally {
       setSaving(false);
     }

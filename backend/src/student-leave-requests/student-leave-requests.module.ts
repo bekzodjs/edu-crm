@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Get,
@@ -12,6 +13,7 @@ import {
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
+import { IsOptional, IsString, MaxLength } from 'class-validator';
 import { StudentLeaveRequest, Student, Group } from '../database/schemas';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
@@ -20,6 +22,9 @@ import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { TelegramModule, NotificationsService } from '../telegram/telegram.module';
 
 export class DecideStudentLeaveRequestDto {
+  @IsOptional()
+  @IsString()
+  @MaxLength(1000)
   note?: string;
 }
 
@@ -71,6 +76,8 @@ export class StudentLeaveRequestsService {
   private async decide(id: string, status: 'APPROVED' | 'REJECTED', note?: string) {
     const request = await this.leaveModel.findById(id);
     if (!request) throw new NotFoundException('Ariza topilmadi');
+    // Qaror bir marta qabul qilinadi — aks holda qayta bosishda takroriy Telegram xabarlari ketardi.
+    if (request.status !== 'PENDING') throw new BadRequestException("Bu ariza bo'yicha qaror allaqachon qabul qilingan");
 
     request.status = status;
     request.decidedAt = new Date();

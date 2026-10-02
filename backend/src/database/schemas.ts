@@ -23,9 +23,6 @@ export class User extends Document {
   @Prop({ enum: ['SUPERADMIN', 'ADMIN', 'RAHBAR', 'TEACHER'], default: 'ADMIN' }) role: string;
   @Prop() teacherId?: string;
   @Prop() avatarUrl?: string;
-  // Admin/superadmin ko'rishi uchun saqlanadigan ochiq matnli parol nusxasi (parol tiklash/ko'rsatish uchun).
-  // Haqiqiy autentifikatsiya hamon yuqoridagi hash qilingan 'password' orqali ishlaydi.
-  @Prop() plainPassword?: string;
 }
 export const UserSchema = SchemaFactory.createForClass(User);
 

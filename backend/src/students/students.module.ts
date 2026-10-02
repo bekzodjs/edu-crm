@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Delete,
@@ -20,6 +21,8 @@ import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
+import { Type } from 'class-transformer';
+import { IsArray, IsBoolean, IsDate, IsNotEmpty, IsOptional, IsString, MaxLength } from 'class-validator';
 
 // Regex'da maxsus ma'noga ega belgilarni ($regex ichida xato yoki noto'g'ri moslashuvga
 // olib kelmasligi uchun, masalan telefon qidirishda "+" belgisi) ekranlaymiz.
@@ -29,23 +32,50 @@ function escapeRegex(s: string) {
 
 // ---------- DTO ----------
 export class CreateStudentDto {
+  @IsString()
+  @IsNotEmpty({ message: 'F.I.Sh. kiritilishi shart' })
+  @MaxLength(200)
   fullName: string;
-  phone?: string;
-  parentName?: string;
-  parentPhone?: string;
-  birthDate?: string;
-  address?: string;
+
+  @IsOptional() @IsString() @MaxLength(50) phone?: string;
+  @IsOptional() @IsString() @MaxLength(200) parentName?: string;
+  @IsOptional() @IsString() @MaxLength(50) parentPhone?: string;
+
+  @IsOptional()
+  @Type(() => Date)
+  @IsDate({ message: "Tug'ilgan sana noto'g'ri" })
+  birthDate?: Date;
+
+  @IsOptional() @IsString() @MaxLength(300) address?: string;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
   groupIds?: string[];
 }
 
 export class UpdateStudentDto {
+  @IsOptional()
+  @IsString()
+  @IsNotEmpty({ message: "F.I.Sh. bo'sh bo'lmasligi kerak" })
+  @MaxLength(200)
   fullName?: string;
-  phone?: string;
-  parentName?: string;
-  parentPhone?: string;
-  birthDate?: string;
-  address?: string;
-  active?: boolean;
+
+  @IsOptional() @IsString() @MaxLength(50) phone?: string;
+  @IsOptional() @IsString() @MaxLength(200) parentName?: string;
+  @IsOptional() @IsString() @MaxLength(50) parentPhone?: string;
+
+  @IsOptional()
+  @Type(() => Date)
+  @IsDate({ message: "Tug'ilgan sana noto'g'ri" })
+  birthDate?: Date;
+
+  @IsOptional() @IsString() @MaxLength(300) address?: string;
+  @IsOptional() @IsBoolean() active?: boolean;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
   groupIds?: string[];
 }
 
@@ -67,19 +97,29 @@ export class StudentsService {
     @InjectModel(Attendance.name) private attendanceModel: Model<Attendance>,
   ) {}
 
+  /** Mavjud bo'lmagan guruh ID'larini qabul qilmaymiz (aks holda o'quvchi "yo'q" guruhga bog'lanib qolardi). */
+  private async normalizeGroupIds(groupIds: string[]) {
+    const unique = [...new Set(groupIds)];
+    if (!unique.length) return unique;
+    const found = await this.groupModel.countDocuments({ _id: { $in: unique } });
+    if (found !== unique.length) throw new BadRequestException('Tanlangan guruhlardan biri topilmadi');
+    return unique;
+  }
+
   async create(dto: CreateStudentDto) {
+    const groupIds = await this.normalizeGroupIds(dto.groupIds || []);
     const student = await this.studentModel.create({
-      fullName: dto.fullName,
+      fullName: dto.fullName.trim(),
       phone: dto.phone,
       parentName: dto.parentName,
       parentPhone: dto.parentPhone,
-      birthDate: dto.birthDate ? new Date(dto.birthDate) : undefined,
+      birthDate: dto.birthDate,
       address: dto.address,
-      groupIds: dto.groupIds || [],
+      groupIds,
     });
 
-    if (dto.groupIds?.length) {
-      await this.syncGroupMembership(student.id, [], dto.groupIds);
+    if (groupIds.length) {
+      await this.syncGroupMembership(student.id, [], groupIds);
     }
     return student;
   }
@@ -155,12 +195,12 @@ export class StudentsService {
     const existing = await this.studentModel.findById(id);
     if (!existing) throw new NotFoundException('O‘quvchi topilmadi');
 
-    if (dto.groupIds) {
-      await this.syncGroupMembership(id, existing.groupIds, dto.groupIds);
-    }
-
     const update: any = { ...dto };
-    if (dto.birthDate) update.birthDate = new Date(dto.birthDate);
+    if (dto.groupIds) {
+      update.groupIds = await this.normalizeGroupIds(dto.groupIds);
+      await this.syncGroupMembership(id, existing.groupIds, update.groupIds);
+    }
+    if (dto.fullName) update.fullName = dto.fullName.trim();
 
     return this.studentModel.findByIdAndUpdate(id, update, { new: true });
   }

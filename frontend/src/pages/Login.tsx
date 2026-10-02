@@ -2,6 +2,7 @@ import { FormEvent, useState } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { GraduationCap, Lock, Phone, Eye, EyeOff, Loader2 } from '../components/icons';
 import { useAuth } from '../context/AuthContext';
+import { apiErrorMessage } from '../api/client';
 
 export default function Login() {
   const { user, login } = useAuth();
@@ -22,7 +23,7 @@ export default function Login() {
       await login(phone, password);
       navigate('/');
     } catch (err: any) {
-      setError(err?.response?.data?.message || 'Kirishda xatolik yuz berdi');
+      setError(apiErrorMessage(err, 'Kirishda xatolik yuz berdi'));
     } finally {
       setLoading(false);
     }
