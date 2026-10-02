@@ -1,0 +1,208 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+}
+
+body {
+  @apply bg-slate-50 text-slate-800;
+}
+
+.card {
+  @apply bg-white rounded-2xl shadow-sm border border-slate-200/70 p-5;
+}
+
+.card-hover {
+  @apply transition-all duration-150 hover:shadow-md hover:border-brand-200 hover:-translate-y-0.5;
+}
+
+.btn {
+  @apply inline-flex items-center justify-center gap-1.5 rounded-lg px-4 py-2 text-sm font-medium transition-colors disabled:opacity-50 disabled:pointer-events-none;
+}
+
+.btn-primary {
+  @apply btn bg-brand-600 text-white shadow-sm shadow-brand-600/20 hover:bg-brand-700 active:bg-brand-800;
+}
+
+.btn-secondary {
+  @apply btn bg-slate-100 text-slate-700 hover:bg-slate-200;
+}
+
+.btn-danger {
+  @apply btn bg-red-50 text-red-600 hover:bg-red-100;
+}
+
+.btn-ghost {
+  @apply btn text-slate-500 hover:bg-slate-100 hover:text-slate-700;
+}
+
+.input {
+  @apply w-full rounded-lg border border-slate-300 px-3 py-2 text-sm transition-shadow focus:outline-none focus:ring-2 focus:ring-brand-500/40 focus:border-brand-500;
+}
+
+.label {
+  @apply block text-sm font-medium text-slate-600 mb-1;
+}
+
+/* Raqamli inputlarda (summa, narx, sig'im va h.k.) tepa-past kichik strelkalarni
+   yashiramiz — foydalanuvchi qiymatni to'g'ridan-to'g'ri qo'lda kiritadi, bittalab
+   bosib oshirish shart emas. */
+input[type='number'] {
+  -moz-appearance: textfield;
+}
+input[type='number']::-webkit-inner-spin-button,
+input[type='number']::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.badge {
+  @apply inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium;
+}
+.badge-green { @apply badge bg-green-100 text-green-700; }
+.badge-red { @apply badge bg-red-100 text-red-700; }
+.badge-amber { @apply badge bg-amber-100 text-amber-700; }
+.badge-slate { @apply badge bg-slate-200 text-slate-700; }
+.badge-brand { @apply badge bg-brand-100 text-brand-700; }
+
+table.data-table {
+  @apply w-full text-sm border-collapse;
+}
+table.data-table th {
+  @apply text-left text-xs uppercase tracking-wide text-slate-500 border-b border-slate-200 px-3 py-2.5;
+}
+table.data-table td {
+  @apply border-b border-slate-100 px-3 py-2.5;
+}
+table.data-table tr:hover td {
+  @apply bg-slate-50/80;
+}
+
+.modal-overlay {
+  @apply fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-50 p-4;
+}
+.modal-panel {
+  @apply bg-white rounded-2xl shadow-xl border border-slate-200 p-6 w-full max-w-sm animate-[fadeIn_0.15s_ease-out];
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(4px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.filter-bar {
+  @apply flex flex-wrap items-end gap-3 mb-4 card !py-3 !px-4;
+}
+
+/* ==========================================================================
+   Tungi rejim (dark mode) — <html> elementiga "dark" klass qo'shilganda
+   butun ilova bo'ylab qo'llaniladigan qayta ranglash qoidalari.
+   ========================================================================== */
+.dark {
+  color-scheme: dark;
+}
+.dark body {
+  background-color: #020617;
+  color: #e2e8f0;
+}
+
+/* Umumiy komponent klasslari */
+.dark .card {
+  background-color: #0f172a;
+  border-color: #1e293b;
+}
+.dark .btn-secondary {
+  background-color: #1e293b;
+  color: #e2e8f0;
+}
+.dark .btn-secondary:hover {
+  background-color: #334155;
+}
+.dark .btn-ghost {
+  color: #64748b;
+}
+.dark .btn-ghost:hover {
+  background-color: #1e293b;
+  color: #e2e8f0;
+}
+.dark .input {
+  background-color: #0f172a;
+  border-color: #334155;
+  color: #f1f5f9;
+}
+.dark .input::placeholder {
+  color: #64748b;
+}
+.dark .label {
+  color: #64748b;
+}
+.dark table.data-table th {
+  color: #64748b;
+  border-color: #1e293b;
+}
+.dark table.data-table td {
+  border-color: #1e293b;
+}
+.dark table.data-table tr:hover td {
+  background-color: rgba(148, 163, 184, 0.06);
+}
+.dark .modal-panel {
+  background-color: #0f172a;
+  border-color: #1e293b;
+}
+.dark .modal-overlay {
+  background-color: rgba(2, 6, 23, 0.6);
+}
+.dark .badge-slate {
+  background-color: #1e293b;
+  color: #cbd5e1;
+}
+
+/* Ko'p sahifalarda to'g'ridan-to'g'ri ishlatiladigan xom Tailwind ranglar —
+   sahifalarning o'zini o'zgartirmasdan qorong'i rejimda to'g'ri ko'rinishi uchun. */
+.dark .bg-white { background-color: #0f172a !important; }
+.dark .bg-slate-50 { background-color: #0b1220 !important; }
+.dark .bg-slate-50\/80 { background-color: rgba(15, 23, 42, 0.7) !important; }
+.dark .bg-slate-100 { background-color: #1e293b !important; }
+.dark .bg-slate-200 { background-color: #334155 !important; }
+
+.dark .text-slate-800 { color: #f1f5f9 !important; }
+.dark .text-slate-700 { color: #e2e8f0 !important; }
+.dark .text-slate-600 { color: #cbd5e1 !important; }
+.dark .text-slate-500 { color: #94a3b8 !important; }
+.dark .text-slate-400 { color: #64748b !important; }
+
+.dark .border-slate-100 { border-color: #1e293b !important; }
+.dark .border-slate-200 { border-color: #1e293b !important; }
+.dark .border-slate-200\/70 { border-color: rgba(30, 41, 59, 0.7) !important; }
+.dark .border-slate-300 { border-color: #334155 !important; }
+.dark .divide-slate-100 > * + * { border-color: #1e293b !important; }
+
+.dark .bg-brand-50 { background-color: rgba(59, 107, 240, 0.12) !important; }
+.dark .bg-brand-50\/40 { background-color: rgba(59, 107, 240, 0.1) !important; }
+.dark .bg-brand-50\/60 { background-color: rgba(59, 107, 240, 0.14) !important; }
+.dark .bg-brand-100 { background-color: rgba(59, 107, 240, 0.18) !important; }
+.dark .text-brand-600 { color: #85acff !important; }
+.dark .text-brand-700 { color: #b3ccff !important; }
+.dark .border-brand-200 { border-color: rgba(133, 172, 255, 0.35) !important; }
+.dark .border-brand-300 { border-color: rgba(133, 172, 255, 0.45) !important; }
+
+.dark .bg-green-100 { background-color: rgba(34, 197, 94, 0.16) !important; }
+.dark .text-green-600, .dark .text-green-700 { color: #4ade80 !important; }
+.dark .bg-red-50, .dark .bg-red-100 { background-color: rgba(239, 68, 68, 0.16) !important; }
+.dark .text-red-500, .dark .text-red-600, .dark .text-red-700 { color: #f87171 !important; }
+.dark .border-red-100 { border-color: rgba(239, 68, 68, 0.25) !important; }
+.dark .bg-amber-100 { background-color: rgba(245, 158, 11, 0.16) !important; }
+.dark .text-amber-500, .dark .text-amber-600, .dark .text-amber-700 { color: #fbbf24 !important; }
+.dark .bg-emerald-100 { background-color: rgba(16, 185, 129, 0.16) !important; }
+.dark .text-emerald-700 { color: #34d399 !important; }
+.dark .bg-rose-100 { background-color: rgba(244, 63, 94, 0.16) !important; }
+.dark .text-rose-700 { color: #fb7185 !important; }
+.dark .bg-sky-100 { background-color: rgba(14, 165, 233, 0.16) !important; }
+.dark .text-sky-700 { color: #38bdf8 !important; }
+.dark .bg-violet-100 { background-color: rgba(139, 92, 246, 0.16) !important; }
+.dark .text-violet-700 { color: #a78bfa !important; }
+
+.dark ::-webkit-scrollbar-thumb { background-color: #334155; }

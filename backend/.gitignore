@@ -1,0 +1,8 @@
+node_modules/
+dist/
+.env
+*.log
+
+# Yuklangan fayllar (diplom/sertifikat va h.k.) — repo'ga qo'shilmaydi
+uploads/*
+!uploads/.gitkeep
