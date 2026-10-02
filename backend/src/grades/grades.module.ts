@@ -17,8 +17,8 @@ export class CreateGradeDto {
 }
 
 function startOfWeek(d: Date) {
-  const day = d.getDay(); // 0=Yakshanba
-  const diff = day === 0 ? 6 : day - 1; // Dushanbadan boshlanadi
+  const day = d.getDay();
+  const diff = day === 0 ? 6 : day - 1;
   const monday = new Date(d);
   monday.setHours(0, 0, 0, 0);
   monday.setDate(d.getDate() - diff);
@@ -37,8 +37,6 @@ export class GradesService {
   async create(dto: CreateGradeDto) {
     const grade = await this.gradeModel.create(dto);
 
-    // Baho qo'yilishi bilan darhol (izohi bilan birga, agar yozilgan bo'lsa) bog'langan
-    // ota-onaga Telegram orqali xabar boradi.
     const student = await this.studentModel.findById(dto.studentId);
     if (student) {
       const group = await this.groupModel.findById(dto.groupId);
@@ -59,7 +57,6 @@ export class GradesService {
     return this.gradeModel.find(where).sort({ createdAt: -1 }).limit(200);
   }
 
-  /** Ota-onalar botida va StudentDetail sahifasida ko'rsatiladigan chiroyli xulosa. */
   async summaryForStudent(studentId: string) {
     const now = new Date();
     const weekStart = startOfWeek(now);

@@ -46,7 +46,6 @@ export class AddTeacherDocumentDto {
   type?: 'DIPLOM' | 'SERTIFIKAT' | 'MALAKA_KURSI' | 'BOSHQA';
 }
 
-// multer/@types paketisiz ham TypeScript xato bermasligi uchun soddalashtirilgan tur.
 interface UploadedFileLike {
   originalname: string;
   filename: string;
@@ -119,9 +118,7 @@ export class TeachersService {
     const doc = teacher.documents.find((d: any) => String(d._id) === docId);
     if (doc) {
       const filePath = join(process.cwd(), doc.fileUrl.replace(/^\//, ''));
-      unlink(filePath, () => {
-        /* fayl allaqachon yo'q bo'lsa ham muammo emas */
-      });
+      unlink(filePath, () => {});
     }
     teacher.documents = teacher.documents.filter((d: any) => String(d._id) !== docId) as any;
     await teacher.save();
@@ -140,8 +137,6 @@ export class TeachersController {
     return this.teachersService.create(dto);
   }
 
-  // Ro'yxatni ko'rish faqat rahbariyat uchun (SUPERADMIN/ADMIN/RAHBAR) — TEACHER
-  // boshqa o'qituvchilarni ko'rmasligi, faqat o'zining profilini ko'rishi kerak.
   @Roles('SUPERADMIN', 'ADMIN', 'RAHBAR')
   @Get()
   findAll() {
@@ -183,7 +178,7 @@ export class TeachersController {
           cb(null, `${Date.now()}-${safe}`);
         },
       }),
-      limits: { fileSize: 20 * 1024 * 1024 }, // 20 MB
+      limits: { fileSize: 20 * 1024 * 1024 },
     }),
   )
   addDocument(

@@ -1,5 +1,3 @@
-// Demo ma'lumot bilan bazani to'ldirish skripti (yetarlicha katta, lekin tezroq ishlashi uchun
-// og'ir qismlari parallel bajariladi). Ishga tushirish: npm run seed
 import 'dotenv/config';
 import mongoose from 'mongoose';
 import * as bcrypt from 'bcryptjs';
@@ -87,8 +85,6 @@ async function main() {
   const existingAdmin = await User.findOne({ phone: adminPhone });
   if (!existingAdmin) {
     const hashed = await bcrypt.hash(adminPassword, 10);
-    // Birinchi hisob SUPERADMIN sifatida yaratiladi — u boshqa barcha admin/rahbar/
-    // o'qituvchi login'larini /users bo'limidan qo'sha, tahrirlay va o'chira oladi.
     await User.create({ name: adminName, phone: adminPhone, password: hashed, role: 'SUPERADMIN' });
     console.log(`✅ SUPERADMIN yaratildi: ${adminPhone} / ${adminPassword}`);
   } else {

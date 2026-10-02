@@ -30,7 +30,6 @@ export default function Login() {
 
   return (
     <div className="min-h-screen flex bg-slate-50">
-      {/* Chap tomon — brend paneli */}
       <div className="hidden lg:flex flex-1 bg-gradient-to-br from-brand-700 via-brand-600 to-brand-500 text-white flex-col justify-between p-12 relative overflow-hidden">
         <div className="absolute -top-24 -right-24 w-96 h-96 rounded-full bg-white/10" />
         <div className="absolute -bottom-32 -left-16 w-80 h-80 rounded-full bg-white/10" />
@@ -53,7 +52,6 @@ export default function Login() {
         <div className="relative text-xs text-brand-100/80">© {new Date().getFullYear()} Edu CRM</div>
       </div>
 
-      {/* O'ng tomon — login forma */}
       <div className="flex-1 flex items-center justify-center p-6">
         <form onSubmit={onSubmit} className="w-full max-w-sm">
           <div className="lg:hidden flex items-center gap-2 text-brand-700 font-semibold text-lg mb-8 justify-center">

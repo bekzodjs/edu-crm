@@ -23,10 +23,6 @@ export default function PaymentsHub() {
     setParams({ tab: t });
   }
 
-  // Butun "To'lovlar" bo'limi (to'lovlar ro'yxati, qarzdorlik, o'qituvchilar daromadi)
-  // TEACHER uchun backendda yopiq — o'zining ish haqi hisobotini u "Mening profilim"
-  // sahifasidan ko'radi. Nav'da yashirilgan bo'lsa ham, to'g'ridan-to'g'ri link orqali
-  // kirib qolishning oldini olamiz.
   if (user?.role === 'TEACHER') {
     return (
       <div className="card max-w-md">

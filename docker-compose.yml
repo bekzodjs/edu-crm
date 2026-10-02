@@ -1,12 +1,5 @@
 version: "3.9"
 
-# Edu CRM — MongoDB (replica set, Prisma uchun shart), backend va frontendni
-# bitta buyruq bilan ishga tushirish uchun.
-#
-# Ishga tushirish:  docker compose up -d --build
-# Backend:  http://localhost:3000/api
-# Frontend: http://localhost:5173
-
 services:
   mongo:
     image: mongo:7

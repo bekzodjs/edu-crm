@@ -7,8 +7,6 @@ import { usePagination } from '../hooks/usePagination';
 
 export default function Groups() {
   const { user } = useAuth();
-  // TEACHER faqat o'zining guruhlarini ko'radi (backend ham shunday filtrlaydi) va
-  // guruh qo'shish/tahrirlash/o'chirish huquqiga ega emas.
   const canManage = user?.role === 'SUPERADMIN' || user?.role === 'ADMIN';
   const [groups, setGroups] = useState<Group[]>([]);
   const [teachers, setTeachers] = useState<Teacher[]>([]);
@@ -18,9 +16,6 @@ export default function Groups() {
 
   function load() {
     GroupsApi.list().then((r) => setGroups(r.data));
-    // TEACHER uchun o'qituvchilar ro'yxati (boshqalar profili) backendda yopiq —
-    // shu sahifada faqat o'zining guruhlari ko'rinadi, shuning uchun bu chaqiruv
-    // faqat boshqara oladiganlar (admin) uchun kerak.
     if (canManage) TeachersApi.list().then((r) => setTeachers(r.data));
   }
   useEffect(load, []);
@@ -63,8 +58,6 @@ export default function Groups() {
   }
 
   function teacherName(id: string) {
-    // TEACHER uchun to'liq o'qituvchilar ro'yxati yuklanmagan (huquqi yo'q) — bu holatda
-    // ko'rinayotgan barcha guruhlar aynan o'zinikidir, shuning uchun o'z ismini ko'rsatamiz.
     if (!canManage && user?.teacherId === id) return user?.name || '—';
     return teachers.find((t) => t.id === id)?.fullName || '—';
   }

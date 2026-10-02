@@ -1,9 +1,6 @@
-// Edu CRM — Mongoose sxemalari (MongoDB uchun, Prisma o'rniga)
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document, Schema as MongooseSchema } from 'mongoose';
 
-// Har bir hujjat JSON'ga aylantirilganda _id -> id, __v olib tashlanadi
-// (Mongoose "id" virtual getterini standart holda o'zi yaratadi).
 const jsonTransform = {
   virtuals: true,
   versionKey: false,
@@ -14,7 +11,6 @@ const jsonTransform = {
 };
 const schemaOptions = { timestamps: true, toJSON: jsonTransform, toObject: jsonTransform };
 
-// ---------- User (admin/o'qituvchi login) ----------
 @Schema(schemaOptions)
 export class User extends Document {
   @Prop({ required: true }) name: string;
@@ -23,14 +19,10 @@ export class User extends Document {
   @Prop({ enum: ['SUPERADMIN', 'ADMIN', 'RAHBAR', 'TEACHER'], default: 'ADMIN' }) role: string;
   @Prop() teacherId?: string;
   @Prop() avatarUrl?: string;
-  // Admin/superadmin ko'rishi uchun saqlanadigan ochiq matnli parol nusxasi (parol tiklash/ko'rsatish uchun).
-  // Haqiqiy autentifikatsiya hamon yuqoridagi hash qilingan 'password' orqali ishlaydi.
   @Prop() plainPassword?: string;
 }
 export const UserSchema = SchemaFactory.createForClass(User);
 
-// ---------- Teacher ----------
-// O'qituvchining hujjatlari (diplom, sertifikat, malaka kursi va h.k.) — ichki sub-hujjat sifatida saqlanadi.
 const TeacherDocumentSchema = new MongooseSchema(
   {
     title: { type: String, required: true },
@@ -66,7 +58,6 @@ export class Teacher extends Document {
 }
 export const TeacherSchema = SchemaFactory.createForClass(Teacher);
 
-// ---------- Group ----------
 @Schema(schemaOptions)
 export class Group extends Document {
   @Prop({ required: true }) name: string;
@@ -74,10 +65,6 @@ export class Group extends Document {
   @Prop({ required: true }) price: number;
   @Prop({ default: 20 }) capacity: number;
   @Prop({ required: true }) teacherId: string;
-  // Bitta o'qituvchi bir nechta fan/guruhda dars berishi va har birida maoshi turlicha
-  // bo'lishi mumkin (masalan matematikadan 40%, IT'dan 50%) — shu sababli maosh foizi
-  // avvalo shu guruh darajasida belgilanadi. Bo'sh qoldirilsa, o'qituvchining standart
-  // (Teacher.salaryPct) foizi ishlatiladi.
   @Prop() salaryPct?: number;
   @Prop() room?: string;
   @Prop({ default: true }) active: boolean;
@@ -85,7 +72,6 @@ export class Group extends Document {
 }
 export const GroupSchema = SchemaFactory.createForClass(Group);
 
-// ---------- Student ----------
 @Schema(schemaOptions)
 export class Student extends Document {
   @Prop({ required: true }) fullName: string;
@@ -96,13 +82,10 @@ export class Student extends Document {
   @Prop() address?: string;
   @Prop({ default: true }) active: boolean;
   @Prop({ type: [String], default: [] }) groupIds: string[];
-  // O'tgan oyda shu guruhdagi eng top 5 o'quvchi ichiga kirgani uchun avtomatik chegirma (%).
-  // Har oyning 1-kunida DiscountsService tomonidan qayta hisoblanadi.
   @Prop({ default: 0 }) discountPct: number;
 }
 export const StudentSchema = SchemaFactory.createForClass(Student);
 
-// ---------- ScheduleSlot (haftalik takrorlanuvchi jadval) ----------
 @Schema({ timestamps: true, toJSON: jsonTransform, toObject: jsonTransform })
 export class ScheduleSlot extends Document {
   @Prop({ required: true }) groupId: string;
@@ -113,7 +96,6 @@ export class ScheduleSlot extends Document {
 }
 export const ScheduleSlotSchema = SchemaFactory.createForClass(ScheduleSlot);
 
-// ---------- Lesson (aniq sanadagi dars) ----------
 @Schema(schemaOptions)
 export class Lesson extends Document {
   @Prop({ required: true }) groupId: string;
@@ -125,7 +107,6 @@ export class Lesson extends Document {
 }
 export const LessonSchema = SchemaFactory.createForClass(Lesson);
 
-// ---------- Homework (uyga vazifa) — fayl yoki video havolasi bilan ----------
 @Schema(schemaOptions)
 export class Homework extends Document {
   @Prop({ required: true }) groupId: string;
@@ -139,7 +120,6 @@ export class Homework extends Document {
 }
 export const HomeworkSchema = SchemaFactory.createForClass(Homework);
 
-// ---------- Grade (baho) ----------
 @Schema({ timestamps: { createdAt: true, updatedAt: false }, toJSON: jsonTransform, toObject: jsonTransform })
 export class Grade extends Document {
   @Prop({ required: true }) studentId: string;
@@ -152,7 +132,6 @@ export class Grade extends Document {
 }
 export const GradeSchema = SchemaFactory.createForClass(Grade);
 
-// ---------- Feedback (o'quvchi/ota-ona tomonidan o'qituvchiga har kunlik fikr-mulohaza) ----------
 @Schema({ timestamps: { createdAt: true, updatedAt: false }, toJSON: jsonTransform, toObject: jsonTransform })
 export class Feedback extends Document {
   @Prop({ required: true }) studentId: string;
@@ -165,21 +144,18 @@ export class Feedback extends Document {
 }
 export const FeedbackSchema = SchemaFactory.createForClass(Feedback);
 
-// ---------- Attendance ----------
 @Schema({ timestamps: false, toJSON: jsonTransform, toObject: jsonTransform })
 export class Attendance extends Document {
   @Prop({ required: true }) lessonId: string;
   @Prop({ required: true }) studentId: string;
   @Prop({ enum: ['PRESENT', 'ABSENT', 'LATE', 'EXCUSED'], default: 'PRESENT' }) status: string;
   @Prop() note?: string;
-  // Kechikkanda necha minut kechikkani (faqat status === 'LATE' bo'lganda mazmunli).
   @Prop() lateMinutes?: number;
   @Prop({ default: () => new Date() }) markedAt: Date;
 }
 export const AttendanceSchema = SchemaFactory.createForClass(Attendance);
 AttendanceSchema.index({ lessonId: 1, studentId: 1 }, { unique: true });
 
-// ---------- Payment ----------
 @Schema({ timestamps: { createdAt: true, updatedAt: false }, toJSON: jsonTransform, toObject: jsonTransform })
 export class Payment extends Document {
   @Prop({ required: true }) studentId: string;
@@ -191,7 +167,6 @@ export class Payment extends Document {
 }
 export const PaymentSchema = SchemaFactory.createForClass(Payment);
 
-// ---------- ParentLink ----------
 @Schema({ timestamps: { createdAt: true, updatedAt: false }, toJSON: jsonTransform, toObject: jsonTransform })
 export class ParentLink extends Document {
   @Prop({ required: true }) studentId: string;
@@ -201,7 +176,6 @@ export class ParentLink extends Document {
 }
 export const ParentLinkSchema = SchemaFactory.createForClass(ParentLink);
 
-// ---------- TeacherLink ----------
 @Schema({ timestamps: { createdAt: true, updatedAt: false }, toJSON: jsonTransform, toObject: jsonTransform })
 export class TeacherLink extends Document {
   @Prop({ required: true }) teacherId: string;
@@ -211,7 +185,6 @@ export class TeacherLink extends Document {
 }
 export const TeacherLinkSchema = SchemaFactory.createForClass(TeacherLink);
 
-// ---------- TeacherAttendance (kelish/ketish + joylashuv) ----------
 @Schema({ timestamps: false, toJSON: jsonTransform, toObject: jsonTransform })
 export class TeacherAttendance extends Document {
   @Prop({ required: true }) teacherId: string;
@@ -222,7 +195,6 @@ export class TeacherAttendance extends Document {
 }
 export const TeacherAttendanceSchema = SchemaFactory.createForClass(TeacherAttendance);
 
-// ---------- TeacherLiveLocation ----------
 @Schema({ timestamps: { createdAt: false, updatedAt: true }, toJSON: jsonTransform, toObject: jsonTransform })
 export class TeacherLiveLocation extends Document {
   @Prop({ required: true, unique: true }) teacherId: string;
@@ -233,7 +205,6 @@ export class TeacherLiveLocation extends Document {
 }
 export const TeacherLiveLocationSchema = SchemaFactory.createForClass(TeacherLiveLocation);
 
-// ---------- LeaveRequest (ariza) ----------
 @Schema({ timestamps: { createdAt: true, updatedAt: false }, toJSON: jsonTransform, toObject: jsonTransform })
 export class LeaveRequest extends Document {
   @Prop({ required: true }) teacherId: string;
@@ -245,7 +216,6 @@ export class LeaveRequest extends Document {
 }
 export const LeaveRequestSchema = SchemaFactory.createForClass(LeaveRequest);
 
-// ---------- StudentLeaveRequest (ota-ona arizasi — farzandi haqida) ----------
 @Schema({ timestamps: { createdAt: true, updatedAt: false }, toJSON: jsonTransform, toObject: jsonTransform })
 export class StudentLeaveRequest extends Document {
   @Prop({ required: true }) studentId: string;
@@ -257,7 +227,6 @@ export class StudentLeaveRequest extends Document {
 }
 export const StudentLeaveRequestSchema = SchemaFactory.createForClass(StudentLeaveRequest);
 
-// ---------- NotificationLog ----------
 @Schema({ timestamps: { createdAt: true, updatedAt: false }, toJSON: jsonTransform, toObject: jsonTransform })
 export class NotificationLog extends Document {
   @Prop() studentId?: string;

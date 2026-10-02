@@ -47,25 +47,13 @@ interface PendingFeedback {
   sentiment?: 'POSITIVE' | 'NEGATIVE';
 }
 
-/**
- * TelegramService — botning o'zini boshqaradi (polling rejimida).
- * Ota-onalar /start <kod> orqali o'z farzandiga, o'qituvchilar ham xuddi shunday
- * /start <kod> orqali o'ziga bog'lanadi. O'qituvchilar qo'shimcha ravishda
- * /keldim va /ketyapman buyruqlari orqali joylashuvini yuborib davomat belgilaydi.
- * /ariza buyrug'i ikkalasi uchun ham ishlaydi: o'qituvchi — ta'til so'rovi,
- * ota-ona — farzandi haqida ariza (masalan darsga kela olmasligi haqida xabar) —
- * ikkalasi ham alohida-alohida ro'yxatda va admin panelda ko'rinadi.
- */
 @Injectable()
 export class TelegramService implements OnModuleInit {
   private readonly logger = new Logger(TelegramService.name);
   private bot: TelegramBot | null = null;
 
-  // chatId -> kutilayotgan amal (joylashuv yuborilishini kutyapmiz)
   private pendingTeacherAction = new Map<string, PendingTeacherAction>();
-  // chatId -> ariza matnini kutyapmiz (kimning nomidan: o'qituvchi yoki ota-ona)
   private pendingLeaveRequest = new Map<string, PendingLeaveKind>();
-  // chatId -> kutilayotgan kunlik fikr-mulohaza (dars uchun ijobiy/salbiy + izoh)
   private pendingFeedback = new Map<string, PendingFeedback>();
 
   constructor(
@@ -108,7 +96,6 @@ export class TelegramService implements OnModuleInit {
     if (!this.bot) return;
     const bot = this.bot;
 
-    // ---------- /start <kod> — ota-ona YOKI o'qituvchi bog'lanishi ----------
     bot.onText(/\/start(?:\s+(.+))?/, async (msg, match) => {
       const chatId = String(msg.chat.id);
       const code = match?.[1]?.trim();
@@ -161,7 +148,6 @@ export class TelegramService implements OnModuleInit {
       await bot.sendMessage(chatId, 'Kod topilmadi yoki eskirgan. Administratordan yangi kod so‘rang.');
     });
 
-    // ---------- Ota-ona: qarz va davomat ----------
     bot.onText(/\/qarz/, async (msg) => {
       const chatId = String(msg.chat.id);
       const links = await this.parentLinkModel.find({ chatId });
@@ -226,7 +212,6 @@ export class TelegramService implements OnModuleInit {
       await bot.sendMessage(chatId, text.trim());
     });
 
-    // ---------- O'qituvchi: keldim / ketyapman ----------
     const askForLocation = async (chatId: string, prompt: string) => {
       await bot.sendMessage(chatId, prompt, {
         reply_markup: {
@@ -259,7 +244,6 @@ export class TelegramService implements OnModuleInit {
       await askForLocation(chatId, 'Ishdan ketayotganingizni tasdiqlash uchun joylashuvingizni yuboring:');
     });
 
-    // Joylashuv (oddiy yoki jonli joylashuvning birinchi xabari) qabul qilinganda
     bot.on('location', async (msg) => {
       const chatId = String(msg.chat.id);
       const pending = this.pendingTeacherAction.get(chatId);
@@ -284,7 +268,6 @@ export class TelegramService implements OnModuleInit {
       });
     });
 
-    // Jonli joylashuv davomida keladigan yangilanishlar (Telegram edited_message sifatida yuboradi)
     bot.on('edited_message', async (msg) => {
       if (!msg.location) return;
       const chatId = String(msg.chat.id);
@@ -292,14 +275,13 @@ export class TelegramService implements OnModuleInit {
       if (!link) return;
 
       const live = await this.liveLocationModel.findOne({ teacherId: link.teacherId });
-      if (!live || !live.active) return; // faqat "ishda" holatidagi o'qituvchining joylashuvini yangilaymiz
+      if (!live || !live.active) return;
 
       live.latitude = msg.location.latitude;
       live.longitude = msg.location.longitude;
       await live.save();
     });
 
-    // ---------- Ariza: o'qituvchi (ta'til) YOKI ota-ona (farzandi haqida) ----------
     bot.onText(/\/ariza(?:\s+([\s\S]+))?/, async (msg, match) => {
       const chatId = String(msg.chat.id);
       const reason = match?.[1]?.trim();
@@ -332,12 +314,10 @@ export class TelegramService implements OnModuleInit {
       await bot.sendMessage(chatId, 'Bu buyruqdan foydalanish uchun avval /start <kod> orqali bog‘laning.');
     });
 
-    // Foydalanuvchidan keladigan matnli javoblar: fikr-mulohaza (feedback) yoki ariza sababi
     bot.on('message', async (msg) => {
       if (!msg.text || msg.text.startsWith('/')) return;
       const chatId = String(msg.chat.id);
 
-      // ---------- Kunlik fikr-mulohaza: ijobiy/salbiy, keyin izoh ----------
       const feedback = this.pendingFeedback.get(chatId);
       if (feedback) {
         const text = msg.text.trim();
@@ -361,7 +341,6 @@ export class TelegramService implements OnModuleInit {
           return;
         }
 
-        // feedback.stage === 'COMMENT'
         this.pendingFeedback.delete(chatId);
         const noComment = /^(yo.?q\.?|-|skip)$/i.test(text);
         await this.feedbackModel.create({
@@ -376,7 +355,6 @@ export class TelegramService implements OnModuleInit {
         return;
       }
 
-      // ---------- /ariza dan keyin sabab alohida xabar sifatida kelganda ----------
       const kind = this.pendingLeaveRequest.get(chatId);
       if (!kind) return;
       this.pendingLeaveRequest.delete(chatId);
@@ -391,7 +369,6 @@ export class TelegramService implements OnModuleInit {
     });
   }
 
-  /** Davomat PRESENT deb belgilanganda ota-onadan darsni ijobiy/salbiy baholashini so'raydi. */
   async promptFeedback(
     chatId: string,
     ctx: { studentId: string; teacherId: string; groupId: string; lessonId?: string },
@@ -432,7 +409,6 @@ export class TelegramService implements OnModuleInit {
   }
 }
 
-/** Ota-onani o'quvchiga bog'lash uchun bir martalik kod yaratish/boshqarish */
 @Injectable()
 export class ParentLinkService {
   constructor(@InjectModel(ParentLink.name) private parentLinkModel: Model<ParentLink>) {}
@@ -447,7 +423,6 @@ export class ParentLinkService {
   }
 }
 
-/** O'qituvchini Telegramga bog'lash uchun bir martalik kod yaratish/boshqarish */
 @Injectable()
 export class TeacherLinkService {
   constructor(@InjectModel(TeacherLink.name) private teacherLinkModel: Model<TeacherLink>) {}
@@ -462,7 +437,6 @@ export class TeacherLinkService {
   }
 }
 
-/** Boshqa modullar (davomat, to'lov, arizalar) shu orqali ota-ona/o'qituvchiga xabar yuboradi */
 @Injectable()
 export class NotificationsService {
   constructor(
@@ -490,7 +464,6 @@ export class NotificationsService {
     return { sentTo: links.length };
   }
 
-  /** Davomat PRESENT deb belgilanganda bog'langan ota-onalardan kunlik fikr-mulohaza so'raydi. */
   async requestLessonFeedback(studentId: string, teacherId: string, groupId: string, lessonId?: string) {
     const links = await this.parentLinkModel.find({ studentId, chatId: { $ne: null } });
     for (const link of links) {

@@ -46,9 +46,6 @@ body {
   @apply block text-sm font-medium text-slate-600 mb-1;
 }
 
-/* Raqamli inputlarda (summa, narx, sig'im va h.k.) tepa-past kichik strelkalarni
-   yashiramiz — foydalanuvchi qiymatni to'g'ridan-to'g'ri qo'lda kiritadi, bittalab
-   bosib oshirish shart emas. */
 input[type='number'] {
   -moz-appearance: textfield;
 }
@@ -96,10 +93,6 @@ table.data-table tr:hover td {
   @apply flex flex-wrap items-end gap-3 mb-4 card !py-3 !px-4;
 }
 
-/* ==========================================================================
-   Tungi rejim (dark mode) — <html> elementiga "dark" klass qo'shilganda
-   butun ilova bo'ylab qo'llaniladigan qayta ranglash qoidalari.
-   ========================================================================== */
 .dark {
   color-scheme: dark;
 }
@@ -108,7 +101,6 @@ table.data-table tr:hover td {
   color: #e2e8f0;
 }
 
-/* Umumiy komponent klasslari */
 .dark .card {
   background-color: #0f172a;
   border-color: #1e293b;
@@ -160,8 +152,6 @@ table.data-table tr:hover td {
   color: #cbd5e1;
 }
 
-/* Ko'p sahifalarda to'g'ridan-to'g'ri ishlatiladigan xom Tailwind ranglar —
-   sahifalarning o'zini o'zgartirmasdan qorong'i rejimda to'g'ri ko'rinishi uchun. */
 .dark .bg-white { background-color: #0f172a !important; }
 .dark .bg-slate-50 { background-color: #0b1220 !important; }
 .dark .bg-slate-50\/80 { background-color: rgba(15, 23, 42, 0.7) !important; }

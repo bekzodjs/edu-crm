@@ -27,7 +27,6 @@ export class TeacherAttendanceService {
     return records.map((r) => ({ ...r.toObject(), teacher: teacherMap.get(r.teacherId) || null }));
   }
 
-  /** Barcha o'qituvchilarning hozirgi (jonli) joylashuv holati */
   async live() {
     const locations = await this.liveModel.find();
     const teacherIds = locations.map((l) => l.teacherId);

@@ -21,13 +21,10 @@ import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 
-// Regex'da maxsus ma'noga ega belgilarni ($regex ichida xato yoki noto'g'ri moslashuvga
-// olib kelmasligi uchun, masalan telefon qidirishda "+" belgisi) ekranlaymiz.
 function escapeRegex(s: string) {
   return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
-// ---------- DTO ----------
 export class CreateStudentDto {
   fullName: string;
   phone?: string;
@@ -57,7 +54,6 @@ export interface StudentListQuery {
   limit?: string;
 }
 
-// ---------- Xizmat ----------
 @Injectable()
 export class StudentsService {
   constructor(
@@ -84,9 +80,6 @@ export class StudentsService {
     return student;
   }
 
-  // TEACHER faqat o'zi dars beradigan guruhlardagi o'quvchilarni ko'rishi kerak —
-  // shuning uchun ixtiyoriy teacherId beriladi, u yerda faqat shu o'qituvchining
-  // guruhlariga tegishli o'quvchilar bilan cheklaymiz.
   async findAll(query: StudentListQuery, teacherId?: string) {
     const page = Math.max(1, Number(query.page) || 1);
     const limit = Math.min(100, Math.max(1, Number(query.limit) || 20));
@@ -110,11 +103,6 @@ export class StudentsService {
       const raw = query.search.trim();
       const digits = raw.replace(/\D/g, '');
       const or: any[] = [{ fullName: { $regex: escapeRegex(raw), $options: 'i' } }];
-      // Qidiruv matnida kamida 3 ta raqam bo'lsa — telefon bo'yicha ham qidiramiz.
-      // Har bir raqam orasida ixtiyoriy raqam bo'lmagan belgilar (bo'shliq, tire, "+",
-      // qavs) bo'lishiga ruxsat beramiz, shunda "+998 90 123 45 67", "998901234567",
-      // "90-123-45-67" kabi turli formatlar bir xil natija beradi. O'quvchining o'zi
-      // yoki ota-onasining telefon raqami bo'yicha ham qidiriladi.
       if (digits.length >= 3) {
         const phonePattern = digits.split('').map(escapeRegex).join('[^0-9]*');
         or.push({ phone: { $regex: phonePattern } });
@@ -172,7 +160,6 @@ export class StudentsService {
     return this.studentModel.findByIdAndDelete(id);
   }
 
-  /** Guruh <-> o'quvchi ikki tomonlama massivlarini sinxronlash */
   private async syncGroupMembership(studentId: string, oldGroupIds: string[], newGroupIds: string[]) {
     const toAdd = newGroupIds.filter((g) => !oldGroupIds.includes(g));
     const toRemove = oldGroupIds.filter((g) => !newGroupIds.includes(g));
@@ -186,7 +173,6 @@ export class StudentsService {
   }
 }
 
-// ---------- Controller ----------
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('students')
 export class StudentsController {
@@ -223,7 +209,6 @@ export class StudentsController {
   }
 }
 
-// ---------- Modul ----------
 @Module({
   controllers: [StudentsController],
   providers: [StudentsService],

@@ -22,11 +22,6 @@ import {
   NotificationLog, NotificationLogSchema,
 } from './schemas';
 
-/**
- * MongoDB'ga ulanish va barcha modellarni ro'yxatdan o'tkazish.
- * @Global() bo'lgani uchun bu modulni faqat AppModule'da import qilish kifoya —
- * boshqa barcha modullar @InjectModel(...) orqali to'g'ridan-to'g'ri foydalanishi mumkin.
- */
 @Global()
 @Module({
   imports: [

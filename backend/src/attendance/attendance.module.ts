@@ -29,7 +29,6 @@ export class AttendanceService {
     private notifications: NotificationsService,
   ) {}
 
-  /** Bir dars uchun bir nechta o'quvchining davomatini birdaniga belgilaydi. */
   async markBulk(dto: MarkAttendanceDto) {
     const lesson = await this.lessonModel.findById(dto.lessonId);
     const group = lesson ? await this.groupModel.findById(lesson.groupId) : null;
@@ -48,7 +47,6 @@ export class AttendanceService {
       );
       results.push(record);
 
-      // Kelmagan yoki kechikkan o'quvchi ota-onasiga avtomatik xabar
       if (entry.status === 'ABSENT' || entry.status === 'LATE') {
         const student = await this.studentModel.findById(entry.studentId);
         const dateStr = lesson ? lesson.date.toISOString().slice(0, 10) : '';
@@ -64,7 +62,6 @@ export class AttendanceService {
         );
       }
 
-      // Kelgan o'quvchi uchun: ota-onadan kunlik fikr-mulohaza (ijobiy/salbiy) so'raladi
       if (entry.status === 'PRESENT' && lesson && group) {
         await this.notifications.requestLessonFeedback(entry.studentId, group.teacherId, group.id, dto.lessonId);
       }
@@ -86,7 +83,6 @@ export class AttendanceService {
     return this.attendanceModel.find({ studentId }).sort({ markedAt: -1 });
   }
 
-  /** Sanalar oralig'ida (va ixtiyoriy guruh bo'yicha) har bir o'quvchi uchun kelmadi/kechikdi/sababli hisobot. */
   async report(query: { from?: string; to?: string; groupId?: string }) {
     const lessonFilter: any = {};
     if (query.groupId) lessonFilter.groupId = query.groupId;
@@ -95,7 +91,7 @@ export class AttendanceService {
       if (query.from) lessonFilter.date.$gte = new Date(query.from);
       if (query.to) {
         const to = new Date(query.to);
-        to.setDate(to.getDate() + 1); // 'to' sanasining oxirigacha (kun bo'yicha inklyuziv)
+        to.setDate(to.getDate() + 1);
         lessonFilter.date.$lt = to;
       }
     }

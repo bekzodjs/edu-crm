@@ -31,7 +31,6 @@ import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles, AppRole } from '../common/decorators/roles.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 
-// ---------- DTO ----------
 const ALL_ROLES: AppRole[] = ['SUPERADMIN', 'ADMIN', 'RAHBAR', 'TEACHER'];
 
 export class CreateUserDto {
@@ -99,8 +98,6 @@ interface UploadedFileLike {
 
 const AVATAR_UPLOAD_ROOT = join(process.cwd(), 'uploads', 'avatars');
 
-// Hash qilingan parol hech qachon qaytarilmaydi. Ochiq matnli nusxa (plainPassword) faqat
-// SUPERADMIN uchun ro'yxatda (includePlain=true) beriladi — boshqa hech kimga.
 function toSafeUser(user: User, includePlain = false) {
   const obj: any = user.toObject ? user.toObject() : user;
   delete obj.password;
@@ -108,12 +105,6 @@ function toSafeUser(user: User, includePlain = false) {
   return obj;
 }
 
-/**
- * Tizimga kiradigan hisoblarni (SUPERADMIN, ADMIN, RAHBAR, TEACHER) boshqarish.
- * Ro'yxatni ko'rish SUPERADMIN va ADMIN uchun ochiq; qo'shish/tahrirlash/o'chirish
- * faqat SUPERADMIN'ga tegishli. Bundan tashqari har bir foydalanuvchi o'zining
- * shaxsiy profilini (rasm, parol) /users/me orqali o'zi boshqaradi.
- */
 @Injectable()
 export class UsersService {
   constructor(@InjectModel(User.name) private userModel: Model<User>) {}
@@ -130,7 +121,6 @@ export class UsersService {
     return toSafeUser(user);
   }
 
-  /** Tizimda faqat bitta SUPERADMIN bo'ladi: yangisini yaratib ham, rol berib ham bo'lmaydi. */
   private assertNotSuperadminRole(role?: string) {
     if (role === 'SUPERADMIN') {
       throw new ForbiddenException('Tizimda faqat bitta superadmin bo‘lishi mumkin');
@@ -166,7 +156,6 @@ export class UsersService {
     if (!user) throw new NotFoundException('Foydalanuvchi topilmadi');
 
     if (dto.role !== undefined && dto.role !== user.role) {
-      // Superadmin roli na berilishi, na olib tashlanishi mumkin.
       if (user.role === 'SUPERADMIN') {
         throw new ForbiddenException('Superadminning rolini o‘zgartirib bo‘lmaydi');
       }
@@ -203,13 +192,6 @@ export class UsersService {
     return { ok: true };
   }
 
-  /**
-   * Administrator (superadmin bo'lmasa ham) boshqa foydalanuvchining parolini
-   * almashtirishi mumkin — lekin faqat "quyi" rollar uchun: o'qituvchi va rahbar.
-   * Boshqa administrator yoki superadminning parolini faqat superadmin o'zi
-   * ("Tahrirlash" formasi orqali) almashtira oladi — bu admin-vs-admin parol
-   * o'zlashtirib olishning oldini oladi.
-   */
   async resetPassword(id: string, dto: ResetUserPasswordDto, currentUser: { role: string }) {
     const user = await this.userModel.findById(id);
     if (!user) throw new NotFoundException('Foydalanuvchi topilmadi');
@@ -227,7 +209,6 @@ export class UsersService {
     return toSafeUser(user);
   }
 
-  /** Har bir foydalanuvchi o'zining parolini o'zi almashtirishi (joriy parolni tasdiqlab). */
   async updateOwnPassword(userId: string, dto: UpdateOwnProfileDto) {
     const user = await this.userModel.findById(userId);
     if (!user) throw new NotFoundException('Foydalanuvchi topilmadi');
@@ -250,9 +231,7 @@ export class UsersService {
     const user = await this.userModel.findById(userId);
     if (!user) throw new NotFoundException('Foydalanuvchi topilmadi');
     if (user.avatarUrl) {
-      unlink(join(process.cwd(), user.avatarUrl.replace(/^\//, '')), () => {
-        /* eski fayl bo'lmasa ham muammo emas */
-      });
+      unlink(join(process.cwd(), user.avatarUrl.replace(/^\//, '')), () => {});
     }
     user.avatarUrl = `/uploads/avatars/${userId}/${file.filename}`;
     await user.save();
@@ -263,9 +242,7 @@ export class UsersService {
     const user = await this.userModel.findById(userId);
     if (!user) throw new NotFoundException('Foydalanuvchi topilmadi');
     if (user.avatarUrl) {
-      unlink(join(process.cwd(), user.avatarUrl.replace(/^\//, '')), () => {
-        /* fayl allaqachon yo'q bo'lsa ham muammo emas */
-      });
+      unlink(join(process.cwd(), user.avatarUrl.replace(/^\//, '')), () => {});
     }
     user.avatarUrl = undefined;
     await user.save();
@@ -278,7 +255,6 @@ export class UsersService {
 export class UsersController {
   constructor(private usersService: UsersService) {}
 
-  // ---------- O'zining shaxsiy profili (har qanday tizimga kirgan foydalanuvchi) ----------
   @Get('me')
   getMe(@CurrentUser() currentUser: { userId: string }) {
     return this.usersService.findOne(currentUser.userId);
@@ -304,7 +280,7 @@ export class UsersController {
           cb(null, `${Date.now()}-${safe}`);
         },
       }),
-      limits: { fileSize: 5 * 1024 * 1024 }, // 5 MB
+      limits: { fileSize: 5 * 1024 * 1024 },
     }),
   )
   uploadOwnAvatar(@CurrentUser() currentUser: { userId: string }, @UploadedFile() file: UploadedFileLike) {
@@ -316,7 +292,6 @@ export class UsersController {
     return this.usersService.removeOwnAvatar(currentUser.userId);
   }
 
-  // ---------- Foydalanuvchilarni boshqarish (SUPERADMIN/ADMIN) ----------
   @Roles('SUPERADMIN', 'ADMIN')
   @Get()
   findAll(@CurrentUser() currentUser: { role: string }) {
@@ -341,8 +316,6 @@ export class UsersController {
     return this.usersService.remove(id, currentUser.userId);
   }
 
-  // Adminlar ham (superadmin bo'lmasa-da) o'qituvchi/rahbar hisoblarining parolini
-  // shu yerdan tezda almashtira oladi (masalan parolini unutgan o'qituvchiga).
   @Roles('SUPERADMIN', 'ADMIN')
   @Patch(':id/password')
   resetPassword(

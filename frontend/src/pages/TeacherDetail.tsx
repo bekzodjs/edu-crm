@@ -61,9 +61,6 @@ export default function TeacherDetail() {
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Diqqat: hook'lar (shu jumladan usePagination ichidagi useState/useEffect) har doim
-  // komponent tepasida, shartsiz chaqirilishi kerak — "if (!teacher) return" dan OLDIN,
-  // aks holda React "Rendered fewer/more hooks than expected" xatosini beradi.
   const historyPage = usePagination(history, 10);
   const leavesPage = usePagination(leaves, 10);
 
@@ -226,7 +223,6 @@ export default function TeacherDetail() {
         </div>
       </div>
 
-      {/* ---------- Hujjatlar: diplom, sertifikat, malaka kurslari ---------- */}
       <div className="card mt-6">
         <h2 className="font-semibold mb-4 flex items-center gap-2">
           <FileText size={18} /> Hujjatlar (diplom, sertifikat, malaka kurslari)

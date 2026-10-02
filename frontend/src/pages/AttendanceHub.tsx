@@ -14,9 +14,6 @@ const TABS: { value: TabKey; label: string; icon: any; roles?: string[] }[] = [
   { value: 'report', label: 'Hisobot', icon: ClipboardCheck },
   { value: 'homework', label: 'Uyga vazifalar', icon: BookOpen },
   { value: 'grades', label: 'Baholar', icon: Star },
-  // Bu yerda BARCHA o'qituvchilarning jonli joylashuvi va kelish-ketish tarixi
-  // ko'rsatiladi — TEACHER buni ko'rmasligi kerak (faqat o'zining tarixini
-  // "Mening profilim"dan ko'radi).
   { value: 'teacher', label: "O'qituvchilar davomati", icon: MapPinned, roles: ['SUPERADMIN', 'ADMIN', 'RAHBAR'] },
 ];
 

@@ -65,7 +65,6 @@ export class HomeworkService {
       dueDate: dto.dueDate ? new Date(dto.dueDate) : undefined,
     });
 
-    // Guruhdagi barcha o'quvchilarning ota-onalariga yangi uyga vazifa haqida xabar.
     const group = await this.groupModel.findById(dto.groupId);
     if (group?.studentIds?.length) {
       const dueText = homework.dueDate ? `\nMuddat: ${homework.dueDate.toISOString().slice(0, 10)}` : '';
@@ -90,9 +89,7 @@ export class HomeworkService {
     const homework = await this.homeworkModel.findById(id);
     if (!homework) throw new NotFoundException('Vazifa topilmadi');
     if (homework.fileUrl) {
-      unlink(join(process.cwd(), homework.fileUrl.replace(/^\//, '')), () => {
-        /* fayl allaqachon yo'q bo'lsa ham muammo emas */
-      });
+      unlink(join(process.cwd(), homework.fileUrl.replace(/^\//, '')), () => {});
     }
     await homework.deleteOne();
     return homework;
@@ -124,7 +121,7 @@ export class HomeworkController {
           cb(null, `${Date.now()}-${safe}`);
         },
       }),
-      limits: { fileSize: 50 * 1024 * 1024 }, // 50 MB (video/hujjat uchun)
+      limits: { fileSize: 50 * 1024 * 1024 },
     }),
   )
   create(@Body() dto: CreateHomeworkDto, @UploadedFile() file: UploadedFileLike) {

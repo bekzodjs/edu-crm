@@ -16,8 +16,6 @@ import { useAuth } from '../context/AuthContext';
 
 export default function Dashboard() {
   const { user } = useAuth();
-  // TEACHER uchun "O'qituvchilar" (boshqalar ro'yxati) va "Qarzdorlik" (moliyaviy
-  // hisobot) kartochkalari tegishli emas — bu ma'lumotlar unga backendda ham yopiq.
   const isTeacher = user?.role === 'TEACHER';
   const [activeStudents, setActiveStudents] = useState(0);
   const [groups, setGroups] = useState<Group[]>([]);

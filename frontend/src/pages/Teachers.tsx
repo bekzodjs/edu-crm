@@ -33,9 +33,6 @@ function avatarColor(id: string) {
 export default function Teachers() {
   const { user } = useAuth();
   const canManage = user?.role === 'SUPERADMIN' || user?.role === 'ADMIN';
-  // O'qituvchilar ro'yxati (boshqalar profili) TEACHER uchun backendda yopiq — nav'da
-  // ham yashirilgan, lekin to'g'ridan-to'g'ri link orqali kirib qolishning oldini olish
-  // uchun bu yerda ham o'z profiliga ("Mening profilim") yo'naltiramiz.
   const [teachers, setTeachers] = useState<Teacher[]>([]);
   const [search, setSearch] = useState('');
   const [showForm, setShowForm] = useState(false);
@@ -49,7 +46,6 @@ export default function Teachers() {
   }
   useEffect(load, [user?.role]);
 
-  // Ism (yoki familiya) bosh harfi bilan, yoxud telefon raqami bo'yicha filtr.
   const filteredTeachers = teachers.filter((t) => {
     const q = search.trim().toLowerCase();
     if (!q) return true;
@@ -61,10 +57,6 @@ export default function Teachers() {
     return nameMatch || phoneMatch;
   });
 
-  // MUHIM: hook'lar (usePagination shu jumladan) har doim shartsiz, komponent tepasida
-  // chaqirilishi kerak — shuning uchun TEACHER uchun "Mening profilim"ga almashtirish
-  // BARCHA hook'lar chaqirilgandan KEYIN, JSX return'dan oldin amalga oshiriladi
-  // (aks holda React "Rendered fewer hooks than expected" xatosini beradi).
   const { page, setPage, pageCount, total, pageItems } = usePagination(filteredTeachers, 15);
 
   if (user?.role === 'TEACHER') {

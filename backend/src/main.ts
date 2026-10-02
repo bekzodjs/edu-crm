@@ -13,7 +13,6 @@ async function bootstrap() {
   app.enableCors({ origin: config.get<string>('FRONTEND_URL') || '*', credentials: true });
   app.useGlobalPipes(new ValidationPipe({ transform: true }));
 
-  // O'qituvchi hujjatlari (diplom/sertifikat) kabi yuklangan fayllar shu yerdan statik xizmat qiladi.
   app.useStaticAssets(join(process.cwd(), 'uploads'), { prefix: '/uploads/' });
 
   app.setGlobalPrefix('api');

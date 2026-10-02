@@ -77,9 +77,6 @@ export class LeaveRequestsService {
 export class LeaveRequestsController {
   constructor(private service: LeaveRequestsService) {}
 
-  // TEACHER faqat o'zining arizalarini ko'rishi kerak — boshqa o'qituvchilarning
-  // arizalarini emas. Shuning uchun TEACHER uchun teacherId majburiy o'zinikiga
-  // qat'iy belgilanadi (so'rovda boshqa teacherId yuborilgan bo'lsa ham inobatga olinmaydi).
   @Get()
   list(
     @Query() query: { status?: 'PENDING' | 'APPROVED' | 'REJECTED'; teacherId?: string },

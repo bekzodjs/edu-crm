@@ -41,9 +41,6 @@ function statusLabel(status: string) {
 export default function Arizalar() {
   const { user } = useAuth();
   const isTeacher = user?.role === 'TEACHER';
-  // TEACHER faqat o'zining (o'qituvchi sifatida yuborgan) arizalarini ko'rishi kerak —
-  // ota-onalarning arizalari uning uchun emas, shuning uchun "Ota-onalar" tabini
-  // butunlay yashiramiz (backend ham TEACHER uchun faqat o'zinikini qaytaradi).
   const visibleKindTabs = isTeacher ? KIND_TABS.filter((t) => t.value === 'TEACHER') : KIND_TABS;
   const [kind, setKind] = useState<Kind>('TEACHER');
   const [statusTab, setStatusTab] = useState<StatusTab>('PENDING');

@@ -10,11 +10,6 @@ import { Roles } from '../common/decorators/roles.decorator';
 const TOP_STUDENT_COUNT = 5;
 const TOP_STUDENT_DISCOUNT_PCT = 10;
 
-/**
- * Har oyning 1-kuni: o'tgan oy davomida to'plangan baholar (Grade) asosida har bir
- * guruhning eng top 5 o'quvchisiga avtomatik chegirma (%) beriladi — joriy oy uchun
- * amal qiladi va qarzdorlik hisob-kitobida (DebtsService) hisobga olinadi.
- */
 @Injectable()
 export class DiscountsService {
   private readonly logger = new Logger(DiscountsService.name);
@@ -25,13 +20,12 @@ export class DiscountsService {
     @InjectModel(Student.name) private studentModel: Model<Student>,
   ) {}
 
-  @Cron('0 0 1 * *') // Har oyning 1-kuni, yarim tunda
+  @Cron('0 0 1 * *')
   async handleMonthlyTopDiscounts() {
     this.logger.log('Oylik top-5 chegirmalarni hisoblash boshlandi...');
     await this.applyMonthlyTopDiscounts();
   }
 
-  /** Admin panelidan qo'lda ham ishga tushirish mumkin (POST /discounts/run-monthly). */
   async applyMonthlyTopDiscounts() {
     const now = new Date();
     const prevMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);

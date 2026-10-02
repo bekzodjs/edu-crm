@@ -63,9 +63,6 @@ export default function StudentDetail() {
     setLinkCode((res.data as any).linkCode);
   }
 
-  // Diqqat: hook'lar (shu jumladan usePagination ichidagi useState/useEffect) har doim
-  // komponent tepasida, shartsiz chaqirilishi kerak — "if (!student) return" dan OLDIN,
-  // aks holda React "Rendered fewer/more hooks than expected" xatosini beradi.
   const paymentsPage = usePagination(student?.payments || [], 10);
   const attendancesPage = usePagination(student?.attendances || [], 10);
 

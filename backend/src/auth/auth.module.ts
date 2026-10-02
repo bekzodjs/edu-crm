@@ -11,7 +11,6 @@ import { IsString, MinLength } from 'class-validator';
 import { User } from '../database/schemas';
 import { AppRole } from '../common/decorators/roles.decorator';
 
-// ---------- DTO ----------
 export class LoginDto {
   @IsString()
   phone: string;
@@ -21,7 +20,6 @@ export class LoginDto {
   password: string;
 }
 
-// ---------- JWT payload turi ----------
 export interface JwtPayload {
   sub: string;
   phone: string;
@@ -29,7 +27,6 @@ export interface JwtPayload {
   teacherId?: string;
 }
 
-// ---------- JWT strategiyasi ----------
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
   constructor(
@@ -43,8 +40,6 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     });
   }
 
-  // Har bir so'rovda foydalanuvchi bazadan tekshiriladi: o'chirilgan hisob token muddati
-  // tugashini kutmasdan darhol kirolmay qoladi, rol o'zgargan bo'lsa yangi rol amal qiladi.
   async validate(payload: JwtPayload) {
     const user = await this.userModel.findById(payload.sub).select('phone role teacherId');
     if (!user) throw new UnauthorizedException('Hisob topilmadi yoki o‘chirilgan');
@@ -52,9 +47,6 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   }
 }
 
-// ---------- Auth xizmati ----------
-// Eslatma: yangi hisob (admin/rahbar/o'qituvchi login'i) yaratish endi ochiq /auth/register
-// orqali emas, faqat SUPERADMIN kira oladigan /users moduli orqali amalga oshiriladi.
 @Injectable()
 export class AuthService {
   constructor(
@@ -91,7 +83,6 @@ export class AuthService {
   }
 }
 
-// ---------- Auth controller ----------
 @Controller('auth')
 export class AuthController {
   constructor(private authService: AuthService) {}
@@ -102,7 +93,6 @@ export class AuthController {
   }
 }
 
-// ---------- Auth moduli ----------
 @Module({
   imports: [
     ConfigModule,

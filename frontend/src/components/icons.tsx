@@ -1,5 +1,3 @@
-// Yengil, tashqi kutubxonasiz ikonalar (lucide-react o'rniga) — build barqarorligi uchun
-// qo'lda chizilgan chiziqli SVG ikonalar. API'si lucide'ga o'xshash: <IconName size={18} />
 import { SVGProps } from 'react';
 
 interface IconProps extends SVGProps<SVGSVGElement> {

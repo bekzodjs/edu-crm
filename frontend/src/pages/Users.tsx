@@ -24,8 +24,6 @@ const emptyForm = { name: '', phone: '', password: '', role: 'ADMIN' as AppRole,
 export default function Users() {
   const { user: currentUser } = useAuth();
   const canManage = currentUser?.role === 'SUPERADMIN';
-  // ADMIN to'liq boshqara olmasa ham (qo'shish/rolni o'zgartirish/o'chirish superadminga
-  // xos), o'qituvchi va rahbarning parolini unutgan hollarda tezda almashtira olishi kerak.
   const canResetPassword = currentUser?.role === 'SUPERADMIN' || currentUser?.role === 'ADMIN';
   const [users, setUsers] = useState<AppUser[]>([]);
   const [teachers, setTeachers] = useState<Teacher[]>([]);
@@ -41,8 +39,6 @@ export default function Users() {
   const [resetSaving, setResetSaving] = useState(false);
   const { page, setPage, pageCount, total, pageItems } = usePagination(users, 20);
 
-  // ADMIN (superadmin bo'lmasa) faqat "quyi" rollarning (o'qituvchi, rahbar) parolini
-  // almashtira oladi — boshqa administrator yoki superadminning parolini emas.
   function canResetTargetPassword(u: AppUser) {
     if (!canResetPassword) return false;
     if (currentUser?.role === 'SUPERADMIN') return true;
@@ -181,7 +177,6 @@ export default function Users() {
             onChange={(e) => setForm({ ...form, password: e.target.value })}
           />
           <label className="label">Rol</label>
-          {/* Tizimda faqat bitta superadmin bo'ladi: uning roli o'zgarmaydi, boshqalarga superadmin roli berilmaydi. */}
           <select
             className="input mb-3"
             value={form.role}

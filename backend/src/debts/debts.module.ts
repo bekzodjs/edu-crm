@@ -19,7 +19,6 @@ export class DebtsService {
     @InjectModel(Payment.name) private paymentModel: Model<Payment>,
   ) {}
 
-  /** Berilgan oy (YYYY-MM) uchun barcha faol o'quvchilarning qarzdorligini hisoblaydi. */
   async getDebtsForPeriod(period?: string) {
     const targetPeriod = period || currentPeriod();
     const students = await this.studentModel.find({ active: true });
@@ -34,7 +33,6 @@ export class DebtsService {
       }, 0);
       if (fullPrice === 0) continue;
 
-      // Oldingi oyda guruhida eng top 5 ichiga kirgan o'quvchiga avtomatik chegirma qo'llanadi.
       const discountPct = student.discountPct || 0;
       const expected = Math.round(fullPrice * (1 - discountPct / 100));
 
@@ -62,7 +60,6 @@ export class DebtsService {
     };
   }
 
-  /** Bitta o'quvchi bo'yicha joriy oy qarzdorligi (Telegram bot uchun ham ishlatiladi) */
   async getStudentDebt(studentId: string, period?: string) {
     const targetPeriod = period || currentPeriod();
     const student = await this.studentModel.findById(studentId);
@@ -79,7 +76,6 @@ export class DebtsService {
   }
 }
 
-// Qarzdorlik hisoboti ham "To'lovlar" bo'limining bir qismi — TEACHER uchun yopiq.
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('debts')
 export class DebtsController {

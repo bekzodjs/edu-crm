@@ -38,7 +38,6 @@ export class UpdateGroupDto {
   teacherId?: string;
   room?: string;
   active?: boolean;
-  // null = guruhga xos maosh foizini bekor qilish (o'qituvchining standart foiziga qaytish)
   salaryPct?: number | null;
 }
 
@@ -64,9 +63,6 @@ export class GroupsService {
     });
   }
 
-  // TEACHER faqat o'zining guruhlarini ko'rishi kerak (boshqa o'qituvchilarning
-  // guruh narxi, maosh foizi va h.k.ni ko'rmasligi uchun) — shuning uchun
-  // ixtiyoriy teacherId filtri qo'shildi.
   findAll(teacherId?: string) {
     const where: any = {};
     if (teacherId) where.teacherId = teacherId;

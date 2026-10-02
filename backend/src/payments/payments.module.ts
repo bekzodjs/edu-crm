@@ -13,7 +13,7 @@ export class CreatePaymentDto {
   studentId: string;
   amount: number;
   method?: 'CASH' | 'CARD' | 'PAYME' | 'CLICK' | 'OTHER';
-  periodMonth: string; // "2026-09"
+  periodMonth: string;
   note?: string;
 }
 
@@ -84,12 +84,6 @@ export class PaymentsService {
     return this.paymentModel.find({ studentId }).sort({ createdAt: -1 });
   }
 
-  /**
-   * Berilgan oy uchun har bir o'qituvchining "daromadi"ni hisoblaydi.
-   * Bitta to'lov bir nechta guruhga (agar o'quvchi bir necha guruhda bo'lsa) narx nisbatiga
-   * qarab taqsimlanadi, so'ng har bir guruh narxining ulushi shu guruh o'qituvchisiga tegishli
-   * "yig'ilgan summa"ga qo'shiladi. Daromad = yig'ilgan summa * o'qituvchining maosh foizi.
-   */
   async teacherEarnings(period?: string) {
     const targetPeriod = period || currentPeriod();
 
@@ -104,10 +98,6 @@ export class PaymentsService {
     const studentMap = new Map(students.map((s) => [s.id, s]));
     const groupMap = new Map(groups.map((g) => [g.id, g]));
     const grossByTeacher = new Map<string, number>();
-    // Bitta o'qituvchi bir nechta fan/guruhda turlicha maosh foizida ishlashi mumkin
-    // (masalan matematikadan 40%, IT'dan 50%) — shu sababli daromad har bir guruh
-    // o'zining (yoki, agar guruhda alohida belgilanmagan bo'lsa, o'qituvchining
-    // standart) foizi bo'yicha alohida hisoblanadi, so'ng o'qituvchi bo'yicha yig'iladi.
     const earningByTeacher = new Map<string, number>();
 
     for (const payment of payments) {
@@ -134,9 +124,6 @@ export class PaymentsService {
     const rows = teachers.map((t) => {
       const gross = Math.round(grossByTeacher.get(t.id) || 0);
       const earning = Math.round(earningByTeacher.get(t.id) || 0);
-      // Jadvalda ko'rsatiladigan "% " — agar o'qituvchining barcha guruhlari bir xil
-      // foizda bo'lsa, aynan o'sha foiz; aks holda daromaddan qaytarib chiqarilgan
-      // o'rtacha (effektiv) foiz ko'rsatiladi.
       const teacherGroups = groups.filter((g) => g.teacherId === t.id);
       const distinctPcts = new Set(teacherGroups.map((g) => g.salaryPct ?? t.salaryPct ?? 0));
       const salaryPct =
@@ -163,7 +150,6 @@ export class PaymentsService {
     return { period: targetPeriod, rows, totalEarning: rows.reduce((s, r) => s + r.earning, 0) };
   }
 
-  /** Bitta o'qituvchi o'zining daromadi va guruhlari statistikasini ko'rishi uchun (oylar bo'yicha tarix). */
   async teacherEarningsHistory(teacherId: string, months = 6) {
     const now = new Date();
     const periods: string[] = [];
@@ -199,8 +185,6 @@ export class PaymentsController {
     return this.paymentsService.create(dto);
   }
 
-  // TEACHER uchun umumiy to'lovlar/daromad hisobotlari butunlay yopiq — u o'zining
-  // daromadini "Mening profilim" sahifasidan (teacher-earnings/history) ko'radi.
   @Roles('SUPERADMIN', 'ADMIN', 'RAHBAR')
   @Get()
   findAll(@Query() query: PaymentListQuery) {

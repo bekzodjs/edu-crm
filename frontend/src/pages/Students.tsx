@@ -7,8 +7,6 @@ import Pagination from '../components/Pagination';
 
 export default function Students() {
   const { user } = useAuth();
-  // TEACHER faqat o'zi dars beradigan guruhlardagi o'quvchilarni ko'radi (buni backend
-  // ham cheklaydi) va o'quvchi qo'shish/tahrirlash/o'chirish huquqiga ega emas.
   const canManage = user?.role === 'SUPERADMIN' || user?.role === 'ADMIN';
   const [params] = useSearchParams();
   const groupFilterFromUrl = params.get('groupId') || '';

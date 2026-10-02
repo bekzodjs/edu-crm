@@ -32,8 +32,6 @@ export class StudentLeaveRequestsService {
     private notifications: NotificationsService,
   ) {}
 
-  // TEACHER faqat o'zi dars beradigan guruhlardagi o'quvchilarning ota-onalari
-  // yuborgan arizalarini ko'rishi kerak — boshqa guruhlarnikini emas.
   async list(
     query: { status?: 'PENDING' | 'APPROVED' | 'REJECTED'; studentId?: string },
     teacherId?: string,

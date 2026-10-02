@@ -1,7 +1,6 @@
 import axios from 'axios';
 
 export const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
-// Yuklangan fayllar (/uploads/...) backendning API prefiksisiz o'zidan xizmat qiladi.
 export const STATIC_URL = API_URL.replace(/\/api\/?$/, '');
 
 export const http = axios.create({ baseURL: API_URL });
@@ -24,7 +23,6 @@ http.interceptors.response.use(
   },
 );
 
-// ---------- Turlar ----------
 export interface TeacherDocument {
   id: string;
   title: string;
@@ -59,8 +57,6 @@ export interface Group {
   studentIds: string[];
   students?: Student[];
   scheduleSlots?: ScheduleSlot[];
-  // Guruhga xos maosh foizi (bo'sh bo'lsa — o'qituvchining standart foizi ishlatiladi).
-  // Shu orqali bitta o'qituvchi turli fan/guruhlarda turlicha foizda ishlashi mumkin.
   salaryPct?: number;
 }
 
@@ -233,12 +229,10 @@ export interface GradeSummary {
   month: { count: number; average: number };
 }
 
-// ---------- Auth ----------
 export const AuthApi = {
   login: (phone: string, password: string) => http.post('/auth/login', { phone, password }),
 };
 
-// ---------- Students ----------
 export const StudentsApi = {
   list: (params?: { search?: string; groupId?: string; onlyActive?: string; page?: number; limit?: number }) =>
     http.get<Paginated<Student>>('/students', { params }),
@@ -248,7 +242,6 @@ export const StudentsApi = {
   remove: (id: string) => http.delete(`/students/${id}`),
 };
 
-// ---------- Teachers ----------
 export const TeachersApi = {
   list: () => http.get<Teacher[]>('/teachers'),
   get: (id: string) => http.get<Teacher>(`/teachers/${id}`),
@@ -267,7 +260,6 @@ export const TeachersApi = {
   removeDocument: (id: string, docId: string) => http.delete<Teacher>(`/teachers/${id}/documents/${docId}`),
 };
 
-// ---------- Groups ----------
 export const GroupsApi = {
   list: () => http.get<Group[]>('/groups'),
   get: (id: string) => http.get<Group>(`/groups/${id}`),
@@ -276,7 +268,6 @@ export const GroupsApi = {
   remove: (id: string) => http.delete(`/groups/${id}`),
 };
 
-// ---------- Schedule ----------
 export const ScheduleApi = {
   slots: (groupId?: string) => http.get<ScheduleSlot[]>('/schedule/slots', { params: { groupId } }),
   createSlot: (data: Partial<ScheduleSlot>) => http.post<ScheduleSlot>('/schedule/slots', data),
@@ -288,7 +279,6 @@ export const ScheduleApi = {
   lesson: (id: string) => http.get<Lesson>(`/schedule/lessons/${id}`),
 };
 
-// ---------- Attendance ----------
 export const AttendanceApi = {
   markBulk: (data: { lessonId: string; entries: { studentId: string; status: string; note?: string; lateMinutes?: number }[] }) =>
     http.post('/attendance', data),
@@ -298,14 +288,12 @@ export const AttendanceApi = {
     http.get<AttendanceReportRow[]>('/attendance/report', { params }),
 };
 
-// ---------- Payments ----------
 export const PaymentsApi = {
   list: (params?: { studentId?: string; periodMonth?: string; method?: string; page?: number; limit?: number }) =>
     http.get<Paginated<Payment>>('/payments', { params }),
   create: (data: Partial<Payment>) => http.post<Payment>('/payments', data),
 };
 
-// ---------- Debts ----------
 export const DebtsApi = {
   get: (period?: string) =>
     http.get<{ period: string; totalDebt: number; debtorsCount: number; debtors: Debtor[] }>('/debts', {
@@ -313,7 +301,6 @@ export const DebtsApi = {
     }),
 };
 
-// ---------- Telegram ----------
 export const TelegramApi = {
   createLink: (studentId: string) => http.post(`/telegram/link/${studentId}`),
   getLinks: (studentId: string) => http.get(`/telegram/link/${studentId}`),
@@ -322,14 +309,12 @@ export const TelegramApi = {
   status: () => http.get<{ enabled: boolean }>('/telegram/status'),
 };
 
-// ---------- O'qituvchilar davomati / jonli joylashuv ----------
 export const TeacherAttendanceApi = {
   list: (params?: { teacherId?: string; from?: string; to?: string }) =>
     http.get<TeacherAttendanceRecord[]>('/teacher-attendance', { params }),
   live: () => http.get<TeacherLiveLocation[]>('/teacher-attendance/live'),
 };
 
-// ---------- Arizalar ----------
 export const LeaveRequestsApi = {
   list: (params?: { status?: 'PENDING' | 'APPROVED' | 'REJECTED'; teacherId?: string }) =>
     http.get<LeaveRequest[]>('/leave-requests', { params }),
@@ -337,7 +322,6 @@ export const LeaveRequestsApi = {
   reject: (id: string, note?: string) => http.patch(`/leave-requests/${id}/reject`, { note }),
 };
 
-// ---------- Ota-onalar arizalari (farzandi haqida) ----------
 export const StudentLeaveRequestsApi = {
   list: (params?: { status?: 'PENDING' | 'APPROVED' | 'REJECTED'; studentId?: string }) =>
     http.get<StudentLeaveRequest[]>('/student-leave-requests', { params }),
@@ -345,7 +329,6 @@ export const StudentLeaveRequestsApi = {
   reject: (id: string, note?: string) => http.patch(`/student-leave-requests/${id}/reject`, { note }),
 };
 
-// ---------- Foydalanuvchilar (SUPERADMIN — admin/rahbar/o'qituvchi login'lari) ----------
 export const UsersApi = {
   list: () => http.get<AppUser[]>('/users'),
   create: (data: { name: string; phone: string; password: string; role: AppRole; teacherId?: string }) =>
@@ -353,12 +336,9 @@ export const UsersApi = {
   update: (id: string, data: Partial<{ name: string; phone: string; password: string; role: AppRole; teacherId?: string }>) =>
     http.patch<AppUser>(`/users/${id}`, data),
   remove: (id: string) => http.delete(`/users/${id}`),
-  // Admin (superadmin bo'lmasa ham) o'qituvchi/rahbar hisobining parolini tezda
-  // almashtirishi uchun — to'liq tahrirlashdan farqli, faqat parolni o'zgartiradi.
   resetPassword: (id: string, newPassword: string) => http.patch<AppUser>(`/users/${id}/password`, { newPassword }),
 };
 
-// ---------- Shaxsiy profil (har qanday tizimga kirgan foydalanuvchi o'zi uchun) ----------
 export const ProfileApi = {
   me: () => http.get<AppUser>('/users/me'),
   updatePassword: (currentPassword: string, newPassword: string) =>
@@ -371,13 +351,10 @@ export const ProfileApi = {
   removeAvatar: () => http.delete<AppUser>('/users/me/avatar'),
 };
 
-// ---------- O'qituvchi daromadi (to'lovlar ichida) ----------
 export interface TeacherEarningRow {
   teacherId: string;
   fullName: string;
   salaryPct: number;
-  // true — o'qituvchining guruhlari turli maosh foizida (masalan 40% va 50%),
-  // shuning uchun salaryPct o'rtacha (effektiv) qiymat.
   mixedPct?: boolean;
   gross: number;
   earning: number;
@@ -400,7 +377,6 @@ export const TeacherEarningsApi = {
     http.get<TeacherEarningHistoryRow[]>(`/payments/teacher-earnings/${teacherId}/history`, { params: { months } }),
 };
 
-// ---------- Fikr-mulohaza (o'quvchi/ota-ona -> o'qituvchi, har kunlik) ----------
 export interface Feedback {
   id: string;
   studentId: string;
@@ -423,7 +399,6 @@ export const FeedbackApi = {
   summary: (teacherId: string) => http.get<FeedbackSummary>(`/feedback/summary/${teacherId}`),
 };
 
-// ---------- Uyga vazifalar ----------
 export const HomeworkApi = {
   list: (groupId?: string) => http.get<Homework[]>('/homework', { params: { groupId } }),
   create: (data: { groupId: string; teacherId: string; title: string; description?: string; videoUrl?: string; dueDate?: string; file?: File }) => {
@@ -440,7 +415,6 @@ export const HomeworkApi = {
   remove: (id: string) => http.delete(`/homework/${id}`),
 };
 
-// ---------- Baholar ----------
 export const GradesApi = {
   list: (params?: { studentId?: string; groupId?: string }) => http.get<Grade[]>('/grades', { params }),
   summary: (studentId: string) => http.get<GradeSummary>(`/grades/summary/${studentId}`),
@@ -448,7 +422,6 @@ export const GradesApi = {
     http.post<Grade>('/grades', data),
 };
 
-// ---------- Chegirmalar (oylik top-5) ----------
 export const DiscountsApi = {
   runMonthly: () => http.post<{ discountedCount: number; discountPct: number }>('/discounts/run-monthly'),
 };

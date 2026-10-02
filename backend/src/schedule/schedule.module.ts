@@ -17,19 +17,18 @@ import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 
-// ---------- DTO ----------
 export class CreateSlotDto {
   groupId: string;
-  dayOfWeek: number; // 0-6
-  startTime: string; // "15:00"
-  endTime: string; // "16:30"
+  dayOfWeek: number;
+  startTime: string;
+  endTime: string;
   room?: string;
 }
 
 export class GenerateLessonsDto {
-  groupId?: string; // bo'sh bo'lsa — barcha guruhlar
-  fromDate: string; // "2026-09-01"
-  toDate: string; // "2026-09-30"
+  groupId?: string;
+  fromDate: string;
+  toDate: string;
 }
 
 @Injectable()
@@ -54,7 +53,6 @@ export class ScheduleService {
     return this.slotModel.findByIdAndDelete(id);
   }
 
-  /** Berilgan sana oralig'ida haftalik jadval asosida aniq darslar (Lesson) yaratadi. */
   async generateLessons(dto: GenerateLessonsDto) {
     const slots = await this.slotModel.find(dto.groupId ? { groupId: dto.groupId } : {});
 

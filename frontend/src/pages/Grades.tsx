@@ -38,26 +38,18 @@ export default function GradesPage() {
       setGrades([]);
       return;
     }
-    // Diqqat: GroupsApi.list() (ro'yxat) guruhning studentIds'ini beradi, lekin to'liq
-    // "students" massivini to'ldirmaydi (faqat GroupsApi.get bitta guruh uchun to'ldiradi) —
-    // shuning uchun o'quvchilarni aynan shu yerdan, alohida so'rov bilan olamiz.
     GroupsApi.get(groupId).then((r) => setStudents((r.data as any).students || []));
     GradesApi.list({ groupId }).then((r) => setGrades(r.data));
   }, [groupId]);
 
-  // Guruhning haqiqiy dars kunlariga (masalan toq yoki juft kunlar — dars jadvalida
-  // qanday generatsiya qilingan bo'lsa) mos ravishda sanalar ro'yxatini yuklaymiz —
-  // o'qituvchi bahoni aynan qaysi dars kuniga qo'yayotganini tanlaydi.
   useEffect(() => {
     if (!groupId) {
       setLessons([]);
       setLessonId('');
       return;
     }
-    // Faqat shu haftaning dars kunlarini ko'rsatamiz (masalan haftada 3 kun bo'lsa —
-    // ro'yxatda ham aynan shu 3 ta sana chiqadi, ortiqcha eski/kelajak haftalar emas).
     const now = new Date();
-    const dow = now.getDay(); // 0=Yakshanba
+    const dow = now.getDay();
     const mondayOffset = dow === 0 ? -6 : 1 - dow;
     const from = new Date(now);
     from.setDate(now.getDate() + mondayOffset);
@@ -71,7 +63,6 @@ export default function GradesPage() {
       const sorted = [...r.data].sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
       setLessons(sorted);
       const todayStr = new Date().toISOString().slice(0, 10);
-      // Bugungi darsni topamiz, bo'lmasa eng so'nggi o'tgan (yoki eng yaqin) darsni tanlaymiz.
       const todayLesson = sorted.find((l) => l.date.slice(0, 10) === todayStr);
       const past = sorted.filter((l) => l.date.slice(0, 10) <= todayStr);
       setLessonId(todayLesson?.id || past[past.length - 1]?.id || sorted[0]?.id || '');

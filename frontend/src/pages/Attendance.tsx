@@ -26,8 +26,6 @@ export default function Attendance() {
     GroupsApi.list().then((r) => setGroups(r.data));
   }, []);
 
-  // 1-qadam: fan/guruh tanlangandan keyin — faqat SHU guruhning darslarini yuklaymiz
-  // (barcha guruhlarning darslari bir joyda aralashib ketmasligi uchun).
   useEffect(() => {
     if (!groupId) {
       setLessons([]);
@@ -66,8 +64,6 @@ export default function Attendance() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [groupId]);
 
-  // 2-qadam: sana (dars) tanlanganda — o'sha darsning to'liq ma'lumotini (o'quvchilar,
-  // avvalgi davomat) yuklaymiz.
   useEffect(() => {
     if (!lessonId) {
       setLesson(null);
@@ -106,7 +102,6 @@ export default function Attendance() {
     });
   }
 
-  // Joriy belgilangan holatlar bo'yicha davomat statistikasi (real vaqtda, tugmalar bosilishi bilan yangilanadi)
   const stats = useMemo(() => {
     const students = lesson?.students || [];
     const total = students.length;

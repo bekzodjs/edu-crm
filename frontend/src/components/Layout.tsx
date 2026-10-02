@@ -43,13 +43,8 @@ const navGroups: NavGroup[] = [
   {
     title: "Ta'lim",
     items: [
-      // O'quvchilar va guruhlar TEACHER uchun ham ko'rinadi, lekin backend ularni
-      // faqat o'zining guruhi/o'quvchilari bilan cheklaydi (boshqalarini ko'rmaydi,
-      // qo'sha/tahrirlay olmaydi).
       { to: '/students', label: "O'quvchilar", icon: Users },
       { to: '/groups', label: 'Guruhlar', icon: Layers },
-      // Boshqa o'qituvchilarning profili (telefon, maosh foizi, hujjatlari) TEACHER'ga
-      // ko'rinmasligi kerak — u o'z profilini pastdagi "Mening profilim" orqali ko'radi.
       { to: '/teachers', label: "O'qituvchilar", icon: GraduationCap, roles: ['SUPERADMIN', 'ADMIN', 'RAHBAR'] },
       { to: '/schedule', label: 'Dars jadvali', icon: CalendarDays },
     ],
@@ -57,8 +52,6 @@ const navGroups: NavGroup[] = [
   {
     items: [
       { to: '/attendance', label: 'Davomat', icon: ClipboardCheck },
-      // To'lovlar/daromad hisobotlari TEACHER uchun butunlay yopiq — o'zining ish
-      // haqi hisobotini u "Mening profilim" sahifasidan ko'radi.
       { to: '/payments', label: "To'lovlar", icon: Wallet, roles: ['SUPERADMIN', 'ADMIN', 'RAHBAR'] },
     ],
   },
@@ -101,9 +94,7 @@ function Layout() {
       const next = !prev;
       try {
         localStorage.setItem('sidebar_collapsed', next ? '1' : '0');
-      } catch {
-        /* ignore */
-      }
+      } catch {}
       return next;
     });
   }
