@@ -1,0 +1,32 @@
+# Render Blueprint — backend (NestJS) bepul Web Service sifatida, backend/Dockerfile orqali.
+# Render: New + → Blueprint → shu repo. "sync: false" qiymatlarini Render so'raydi.
+services:
+  - type: web
+    name: edu-crm-backend
+    runtime: docker
+    plan: free
+    rootDir: backend
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: DATABASE_URL          # MongoDB Atlas ulanish manzili
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_EXPIRES_IN
+        value: 7d
+      - key: FRONTEND_URL          # Vercel manzili, masalan https://edu-crm.vercel.app
+        sync: false
+      - key: TELEGRAM_BOT_ENABLED
+        value: "true"
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: TELEGRAM_WEBHOOK_URL  # shu servisning manzili, masalan https://edu-crm-backend.onrender.com
+        sync: false
+      - key: SEED_ADMIN_PHONE
+        sync: false
+      - key: SEED_ADMIN_PASSWORD
+        sync: false
+      - key: SEED_ADMIN_NAME
+        value: Bosh administrator

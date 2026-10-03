@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Controller, Get, Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { DatabaseModule } from './database/database.module';
 import { AuthModule } from './auth/auth.module';
@@ -20,7 +20,17 @@ import { GradesModule } from './grades/grades.module';
 import { DiscountsModule } from './discounts/discounts.module';
 import { FeedbackModule } from './feedback/feedback.module';
 
+/** Render health check va UptimeRobot "uyg'otish" so'rovlari uchun: GET /api/health */
+@Controller('health')
+export class HealthController {
+  @Get()
+  check() {
+    return { status: 'ok', time: new Date().toISOString() };
+  }
+}
+
 @Module({
+  controllers: [HealthController],
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
     CronScheduleModule.forRoot(),

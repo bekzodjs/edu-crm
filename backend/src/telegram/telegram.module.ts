@@ -1,7 +1,11 @@
 import {
+  Body,
   Controller,
+  ForbiddenException,
   forwardRef,
   Get,
+  Headers,
+  HttpCode,
   Inject,
   Injectable,
   Logger,
@@ -15,7 +19,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import TelegramBot from 'node-telegram-bot-api';
-import { randomBytes } from 'crypto';
+import { createHash, randomBytes } from 'crypto';
 import {
   ParentLink,
   TeacherLink,
@@ -48,7 +52,8 @@ interface PendingFeedback {
 }
 
 /**
- * TelegramService — botning o'zini boshqaradi (polling rejimida).
+ * TelegramService — botning o'zini boshqaradi. TELEGRAM_WEBHOOK_URL berilsa webhook
+ * rejimida (Render kabi uxlab qoladigan hostinglar uchun), aks holda polling rejimida ishlaydi.
  * Ota-onalar /start <kod> orqali o'z farzandiga, o'qituvchilar ham xuddi shunday
  * /start <kod> orqali o'ziga bog'lanadi. O'qituvchilar qo'shimcha ravishda
  * /keldim va /ketyapman buyruqlari orqali joylashuvini yuborib davomat belgilaydi.
@@ -95,9 +100,45 @@ export class TelegramService implements OnModuleInit {
       return;
     }
 
-    this.bot = new TelegramBot(token, { polling: true });
+    const webhookBase = this.config.get<string>('TELEGRAM_WEBHOOK_URL')?.replace(/\/+$/, '');
+
+    if (webhookBase) {
+      // Webhook rejimi: Telegram yangi xabarlarni POST /api/telegram/webhook ga yuboradi.
+      this.bot = new TelegramBot(token, { polling: false });
+      this.registerHandlers();
+      const url = `${webhookBase}/api/telegram/webhook`;
+      this.bot
+        .setWebHook(url, { secret_token: this.webhookSecret() } as any)
+        .then(() => this.logger.log(`Telegram bot webhook rejimida ishga tushdi: ${url}`))
+        .catch((err) => this.logger.error(`Webhook o'rnatishda xato: ${err}`));
+      return;
+    }
+
+    // Polling rejimi (lokal ishlab chiqish uchun). Avval qolib ketgan webhook o'chiriladi,
+    // aks holda Telegram polling'ga xabar bermaydi.
+    this.bot = new TelegramBot(token, { polling: false });
     this.registerHandlers();
-    this.logger.log('Telegram bot polling rejimida ishga tushdi.');
+    this.bot
+      .deleteWebHook()
+      .catch(() => undefined)
+      .finally(() => {
+        this.bot?.startPolling();
+        this.logger.log('Telegram bot polling rejimida ishga tushdi.');
+      });
+  }
+
+  /** Telegram webhook so'rovlarini tekshirish uchun maxfiy kalit (faqat A-Z, a-z, 0-9, _ va -). */
+  webhookSecret(): string {
+    const fromEnv = this.config.get<string>('TELEGRAM_WEBHOOK_SECRET')?.replace(/[^A-Za-z0-9_-]/g, '');
+    if (fromEnv) return fromEnv.slice(0, 256);
+    // Berilmagan bo'lsa, bot tokenidan hosil qilinadi (tokenning o'zi Telegramga yuborilmaydi).
+    const token = this.config.get<string>('TELEGRAM_BOT_TOKEN') || 'edu-crm';
+    return createHash('sha256').update(`webhook:${token}`).digest('hex');
+  }
+
+  /** Webhook orqali kelgan yangilanishni botga uzatadi. */
+  processUpdate(update: TelegramBot.Update) {
+    this.bot?.processUpdate(update);
   }
 
   isEnabled() {
@@ -543,9 +584,28 @@ export class TelegramController {
   }
 }
 
+/** Telegram serverlari chaqiradigan ochiq endpoint (JWT talab qilinmaydi, maxfiy header bilan tekshiriladi). */
+@Controller('telegram/webhook')
+export class TelegramWebhookController {
+  constructor(private telegramService: TelegramService) {}
+
+  @Post()
+  @HttpCode(200)
+  handle(
+    @Body() update: TelegramBot.Update,
+    @Headers('x-telegram-bot-api-secret-token') secret?: string,
+  ) {
+    if (secret !== this.telegramService.webhookSecret()) {
+      throw new ForbiddenException();
+    }
+    this.telegramService.processUpdate(update);
+    return { ok: true };
+  }
+}
+
 @Module({
   imports: [ConfigModule, DebtsModule, forwardRef(() => GradesModule)],
-  controllers: [TelegramController],
+  controllers: [TelegramController, TelegramWebhookController],
   providers: [TelegramService, ParentLinkService, TeacherLinkService, NotificationsService],
   exports: [TelegramService, ParentLinkService, TeacherLinkService, NotificationsService],
 })
